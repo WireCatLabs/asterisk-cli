@@ -72,8 +72,8 @@ export const cdrReader = async (
     : await (await import("./sql.js")).sqlCdr(cdr, password, { events, signal })
   return {
     rows: async (since) => {
-      const wall = wallClock(zone).time(new Date(since).toISOString())
-      return normalized(await sql.rows(`${wall}:00`), zone, since)
+      const utc = new Date(since).toISOString()
+      return normalized(await sql.rows({ wall: `${wallClock(zone).time(utc)}:00`, utc }), zone, since)
     },
     close: () => sql.close(),
   }

@@ -150,3 +150,10 @@ it("session start on a local Master.csv needs no password, checks the file, and 
   const list = await runCli(["session", "list", "--json"])
   expect(list.json().items).toContainEqual(expect.objectContaining({ profile: "office", signed_in: true }))
 })
+
+it("a Master.csv that is gone fails the sync with file.missing, and names no path", async () => {
+  await configure({ cdr_csv_path: "/nonexistent/79000000001/Master.csv" })
+  const synced = await runCli(["office", "meetings", "sync", "--json"])
+  expect(synced.json()).toMatchObject({ error: { code: "not_found", reason: "file.missing" } })
+  expect(synced.err).not.toContain("79000000001")
+})

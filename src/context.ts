@@ -54,13 +54,22 @@ export interface OpenedSource {
   close(): Promise<void>
 }
 
+export const sftpLater = () =>
+  new CliError("configuration_error", "files_from sftp comes with the next release; mount the folder for now", {
+    reason: "source.bad-setting",
+  })
+
 const filesFor = async (source: SourceConfig, environment: AsteriskEnvironment, offline: boolean | undefined) => {
   if (environment.files) return environment.files
   if (source.files.kind === "local") return localFiles()
   refuseOffline(offline)
-  throw new CliError("configuration_error", "files_from sftp comes with the next release; mount the folder for now", {
-    reason: "source.bad-setting",
-  })
+  throw sftpLater()
+}
+
+/** The recordings alone, for `meetings transcribe`: no CDR, so no database and no password. */
+export const openFiles = (command: Command): Promise<FileAccess> => {
+  const { settings, environment } = contextOf(command)
+  return filesFor(sourceOf(settings), environment, settings.offline)
 }
 
 /**

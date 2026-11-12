@@ -36,7 +36,8 @@ asterisk office config set cdr_timezone Europe/Moscow
 ```
 
 `Master.csv` has no header line. Which columns it has depends on `loguniqueid`, `loguserfield` and `newcdrcolumns` in
-`cdr.conf` (`[csv]`), and `asterisk` tells them apart by their count. Turn on `loguniqueid` and `newcdrcolumns` if
+`cdr.conf` (`[csv]`), and `asterisk` tells them apart by each line's count, so lines written after you turn one on
+are read beside the older ones. Turn on `loguniqueid` and `newcdrcolumns` if
 you can: without the `uniqueid`, a recording cannot be found by its name, and without `linkedid` and `sequence` the
 legs of a transfer are told apart by their content only. If the guess is wrong, name the columns:
 
@@ -97,7 +98,8 @@ asterisk office config set recordings_path /var/spool/asterisk/monitor
 
 A call's recording is found in this order:
 
-1. the CDR's `recordingfile` column, which FreePBX fills, under the date folder `YYYY/MM/DD` or the folder itself;
+1. the CDR's `recordingfile` column, which FreePBX fills, under the date folder `YYYY/MM/DD` or the folder itself; a
+   name that leads outside `recordings_path` is ignored;
 2. a file whose name holds the call's `uniqueid`, in `{yyyy}/{mm}/{dd}/` and then in the folder itself.
 
 A dialplan that names files another way sets its own pattern, with `{uniqueid}`, `{linkedid}`, `{yyyy}`, `{mm}`,
@@ -123,7 +125,9 @@ changed. When the folder is on the PBX, mount it read-only, for example
   or `from-did` context, **outgoing** when an extension called an outside number, **internal** between two
   extensions. Otherwise its direction is left empty.
 - Each call has two people: the extension as `manager`, the outside number as `client`, with the caller ID name when
-  the PBX had one.
+  the PBX had one. A hidden number (`anonymous`, `Restricted`) or a dialplan name such as `s` is no person.
+- A `Local/` channel, which queues, ring groups and follow-me use, names what was dialled, not who is on the line, so
+  the number decides that side.
 
 ## Import the history, then keep it current
 

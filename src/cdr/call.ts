@@ -15,8 +15,16 @@ export interface Call {
   to: Party | null
 }
 
-/** `PJSIP/101-0000002a`, `SIP/101-…`, `Local/101@from-internal-…;1`: the peer is the part before `-`, `@` or `;`. */
-export const peerOf = (channel: string | null): string | null => /^[^/]+\/([^-@;/]+)/.exec(channel ?? "")?.[1] ?? null
+/**
+ * `PJSIP/101-0000002a`, `SIP/101-…`: the peer is the part before `-`, `@` or `;`. A `Local/` channel names what was
+ * dialled (a queue or ring group member), not who is on the line, so it names no peer and the number decides.
+ */
+export const peerOf = (channel: string | null): string | null =>
+  /^local\//i.test(channel ?? "") ? null : (/^[^/]+\/([^-@;/]+)/.exec(channel ?? "")?.[1] ?? null)
+
+/** `anonymous`, `s`, `Restricted`: what a CDR writes for no number. Only something dialable is a person. */
+export const isDialable = (number: string): boolean =>
+  /^\+?[\d\s().-]+$/.test(number) && /\d{3}/.test(number.replace(/\D/g, ""))
 
 /** `"Ivan Petrov" <101>` → `Ivan Petrov`; a name that only repeats the number is no name. */
 export const callerName = (clid: string | null, number: string | null): string | null => {

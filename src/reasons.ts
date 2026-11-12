@@ -17,6 +17,8 @@ const OWN: [reason: string, code: string, message: string][] = [
   ["db.no-table", "not_found", "the database has no such CDR table"],
   ["db.no-select", "permission_error", "the database user may not read the CDR table"],
   ["file.missing", "not_found", "the file is not there"],
+  ["file.denied", "permission_error", "this user may not read the file or folder"],
+  ["file.unreadable", "provider_error", "the file or folder could not be read"],
   ["file.too-large", "validation_error", "the file is larger than the limit"],
   ["recording.missing", "not_found", "the call has no recording"],
   ["model.not-downloaded", "not_found", "the speech model is not on this computer; download it first"],

@@ -12,9 +12,15 @@ export interface SqlSource {
   tls: boolean
 }
 
-/** What a SQL backend answers: the rows that started at `since` or later (wall time in the CDR zone), oldest first. */
+/** A moment twice: the wall time in the CDR zone, for a column without a zone, and UTC, for one with a zone. */
+export interface Since {
+  wall: string
+  utc: string
+}
+
+/** What a SQL backend answers: the rows that started at `since` or later, oldest first. */
 export interface SqlCdr {
-  rows(since: string): Promise<RawRow[]>
+  rows(since: Since): Promise<RawRow[]>
   close(): Promise<void>
 }
 
@@ -30,8 +36,8 @@ const quoted = (kind: SqlSource["kind"], table: string) =>
     .join(".")
 
 /** `calldate` is what cdr_mysql, cdr_pgsql and FreePBX name the start; cdr_adaptive_odbc may keep `start`. */
-const timeColumn = (columns: readonly string[]) => {
-  const named = columns.find((one) => ["calldate", "start"].includes(one.toLowerCase()))
+const timeColumn = (columns: readonly Column[]) => {
+  const named = columns.find(({ name }) => ["calldate", "start"].includes(name.toLowerCase()))
   if (!named)
     throw new CliError("invalid_response", "the CDR table has neither a calldate nor a start column", {
       reason: "cdr.no-time-column",
@@ -63,8 +69,13 @@ const failureOf = (source: SqlSource, error: unknown): CliError => {
   return new CliError("provider_error", `${where} failed the query (${code || "no code"})`, { retryable: false })
 }
 
+interface Column {
+  name: string
+  zoned: boolean
+}
+
 interface Driver {
-  columns(): Promise<string[]>
+  columns(): Promise<Column[]>
   page(sql: string, params: unknown[]): Promise<RawRow[]>
   close(): Promise<void>
 }
@@ -84,11 +95,14 @@ const mysqlDriver = async (source: SqlSource, password: string): Promise<Driver>
     bigNumberStrings: true,
     ...(source.tls ? { ssl: { rejectUnauthorized: true } } : {}),
   })
-  await connection.query("SET SESSION TRANSACTION READ ONLY")
+  await connection.query("SET SESSION TRANSACTION READ ONLY").catch(async (error: unknown) => {
+    await connection.end().catch(() => undefined)
+    throw error
+  })
   return {
     columns: async () => {
       const [, fields] = await connection.query({ sql: `SELECT * FROM ${quoted("mysql", source.table)} LIMIT 0` })
-      return (fields ?? []).map((field) => field.name)
+      return (fields ?? []).map((field) => ({ name: field.name, zoned: false }))
     },
     page: async (sql, params) => {
       const [rows] = await connection.query({ sql, timeout: QUERY_MS }, params)
@@ -99,6 +113,7 @@ const mysqlDriver = async (source: SqlSource, password: string): Promise<Driver>
 }
 
 const TIMESTAMP_WITHOUT_ZONE = 1114
+const TIMESTAMP_WITH_ZONE = 1184
 
 const postgresDriver = async (source: SqlSource, password: string): Promise<Driver> => {
   const { default: pg } = await import("pg")
@@ -123,7 +138,9 @@ const postgresDriver = async (source: SqlSource, password: string): Promise<Driv
   await client.connect()
   return {
     columns: async () =>
-      (await client.query(`SELECT * FROM ${quoted("postgres", source.table)} LIMIT 0`)).fields.map(({ name }) => name),
+      (await client.query(`SELECT * FROM ${quoted("postgres", source.table)} LIMIT 0`)).fields.map(
+        ({ name, dataTypeID }) => ({ name, zoned: dataTypeID === TIMESTAMP_WITH_ZONE }),
+      ),
     page: async (sql, params) => (await client.query(sql, params)).rows as RawRow[],
     close: () => client.end(),
   }
@@ -155,30 +172,43 @@ export const sqlCdr = async (
   return {
     rows: async (since) => {
       const done = providerRequest("cdr.columns", events)
-      let order: string
-      let at: string
+      let time: Column
+      let key: string[]
       try {
         const columns = await driver.columns()
-        at = quoted(source.kind, timeColumn(columns))
-        // A tie on the time would let a row slip between two pages; the uniqueid orders the tie.
-        order = columns.includes("uniqueid") ? `${at}, ${quoted(source.kind, "uniqueid")}` : at
+        time = timeColumn(columns)
+        const names = new Set(columns.map(({ name }) => name))
+        // The legs of one transfer share their time and uniqueid; only the sequence tells them apart in the order.
+        key = names.has("uniqueid") && names.has("sequence") ? [time.name, "uniqueid", "sequence"] : [time.name]
         done()
       } catch (error) {
         const failure = failureOf(source, error)
         done({ error: failure })
         throw failure
       }
+      const at = quoted(source.kind, time.name)
+      const order = key.map((name) => quoted(source.kind, name)).join(", ")
+      const bound = time.zoned ? since.utc : since.wall
       const rows: RawRow[] = []
+      let last: RawRow | undefined
       for (let offset = 0; ; offset += PAGE) {
         if (signal?.aborted) throw new CliError("cancelled", "the CDR read was stopped")
+        // A full key pages by the last row seen, so a row written during the read never shifts a page; a time alone
+        // is not unique, and pages by offset.
+        const after = last && key.length > 1
+        const where = after
+          ? `${at} >= ${mark(1)} AND (${order}) > (${key.map((_, index) => mark(index + 2)).join(", ")})`
+          : `${at} >= ${mark(1)}`
+        const params = after ? [bound, ...key.map((name) => last?.[name] ?? null)] : [bound]
         const read = providerRequest("cdr.rows", events)
         try {
           const page = await driver.page(
-            `SELECT * FROM ${table} WHERE ${at} >= ${mark(1)} ORDER BY ${order} LIMIT ${PAGE} OFFSET ${offset}`,
-            [since],
+            `SELECT * FROM ${table} WHERE ${where} ORDER BY ${order} LIMIT ${PAGE}${key.length > 1 ? "" : ` OFFSET ${offset}`}`,
+            params,
           )
           read({ counts: { rows: page.length } })
           for (const row of page) rows.push(row)
+          last = page.at(-1)
           if (page.length < PAGE) return rows
         } catch (error) {
           const failure = failureOf(source, error)

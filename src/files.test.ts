@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs"
+import { chmodSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect, it } from "vitest"
@@ -47,4 +47,33 @@ it("finds FreePBX's recordingfile in the date folder, then in the folder itself,
   expect((await find(row("1761904800.21", "external-102-89000000002-1761904800.21.mp3")))?.mime).toBe("audio/mpeg")
   expect((await find(row("1761908400.31", "")))?.mime).toBe("audio/x-gsm")
   expect(await find(row("1761999999.99", "missing.wav"))).toBeNull()
+})
+
+it("a folder this user may not read is a permission error that names no path", async () => {
+  const root = folder()
+  const locked = join(root, "79000000001")
+  mkdirSync(locked)
+  chmodSync(locked, 0o000)
+  try {
+    const listed = localFiles().list(locked)
+    await expect(listed).rejects.toMatchObject({ code: "permission_error", details: { reason: "file.denied" } })
+    await expect(listed).rejects.not.toThrow("79000000001")
+  } finally {
+    chmodSync(locked, 0o700)
+  }
+})
+
+it("never takes a longer call id for the call's own, nor a recordingfile outside the folder", async () => {
+  const root = folder()
+  written(join(root, "2026/10/31/in-1761901200.42.wav"))
+  written(join(root, "2026/10/31/in-21761901200.4.wav"))
+  const outside = folder()
+  written(join(outside, "x.wav"))
+  const find = recordingFinder(localFiles(), { root, patterns: DEFAULT_PATTERNS, zone: "UTC", now: Date.now })
+  const row = (uniqueid: string, recordingfile: string) =>
+    cdrRow({ start: "2026-10-31 12:00:00", uniqueid, sequence: "1", recordingfile }, "UTC")
+  expect(await find(row("1761901200.4", ""))).toBeNull()
+  expect((await find(row("1761901200.42", "")))?.name).toBe("in-1761901200.42.wav")
+  expect(await find(row("1761901200.5", join(outside, "x.wav")))).toBeNull()
+  expect(await find(row("1761901200.5", `../../../../..${join(outside, "x.wav")}`))).toBeNull()
 })

@@ -1,5 +1,5 @@
 import type { MeetingSave, MeetingSource, SourceMeeting, SourceParticipant } from "@wirecat/cli-core/meetings"
-import { type Call, callOf, type Party } from "./cdr/call.js"
+import { type Call, callOf, isDialable, type Party } from "./cdr/call.js"
 import type { CdrRow } from "./cdr/record.js"
 import { e164 } from "./phone.js"
 import type { Recording } from "./recordings.js"
@@ -125,7 +125,7 @@ export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: 
       const found = seen.get(id)
       if (!found) return null
       return [found.call.from, found.call.to]
-        .filter((party): party is Party => party !== null)
+        .filter((party): party is Party => party !== null && (party.internal || isDialable(party.number)))
         .map((party) => participantOf(party, options.phoneRegion))
     },
     transcript: async () => null,

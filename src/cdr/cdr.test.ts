@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { e164 } from "../phone.js"
-import { callerName, callOf, peerOf } from "./call.js"
+import { callerName, callOf, isDialable, peerOf } from "./call.js"
 import { csvColumns, csvLines, csvRows } from "./csv.js"
 import { cdrRow } from "./record.js"
 
@@ -34,6 +34,15 @@ describe("Master.csv columns", () => {
     const line = `${base.map(() => '""').join(",")}\n`
     expect(csvRows(`${line}${line}"a","b"`)).toMatchObject({ skipped: 1, rows: [{}, {}] })
   })
+
+  it("names each line's columns by its own count, so lines written after newcdrcolumns was turned on are read", () => {
+    const old = `${base.map(() => '""').join(",")}\n`
+    const newer = `${[...base.map(() => '""'), '"1761901200.11"', '""', '""', '"1761901200.11"', '"11"'].join(",")}\n`
+    const read = csvRows(`${old}${newer}`)
+    expect(read.skipped).toBe(0)
+    expect(read.rows[1]).toMatchObject({ uniqueid: "1761901200.11", sequence: "11" })
+    expect(() => csvRows('"a","b"\n')).toThrow(/cdr_csv_columns/)
+  })
 })
 
 describe("one CDR row", () => {
@@ -66,7 +75,7 @@ describe("who called whom", () => {
 
   it("finds the extension in the channel name, whatever number was shown outside", () => {
     expect(peerOf("PJSIP/101-0000002a")).toBe("101")
-    expect(peerOf("Local/101@from-internal-00000001;1")).toBe("101")
+    expect(peerOf("Local/101@from-internal-00000001;1")).toBeNull()
     const outgoing = callOf(row({ src: "74950000000", channel: "PJSIP/102-1", dst: "89000000002" }), extension)
     expect(outgoing).toMatchObject({ direction: "outgoing", from: { number: "102", internal: true } })
   })
@@ -76,6 +85,20 @@ describe("who called whom", () => {
       "incoming",
     )
     expect(callOf(row({ src: "79000000003", dst: "74950000000", dcontext: "custom" }), extension).direction).toBeNull()
+  })
+
+  it("keeps the outside caller of a queue leg, whose channel is a Local one", () => {
+    const queued = row({ src: "+34600123456", channel: "Local/101@from-queue-00000001;2", dstchannel: "PJSIP/101-2" })
+    expect(callOf(queued, extension)).toMatchObject({
+      direction: "incoming",
+      from: { number: "+34600123456", internal: false },
+      to: { number: "101", internal: true },
+    })
+  })
+
+  it("takes only something dialable for a person, never anonymous or s", () => {
+    expect(["+34 600 123 456", "89000000002", "101"].map(isDialable)).toEqual([true, true, true])
+    expect(["anonymous", "s", "Restricted", "", "12"].map(isDialable)).toEqual([false, false, false, false, false])
   })
 
   it("reads the caller's name, never a name that only repeats the number", () => {

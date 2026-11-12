@@ -25,7 +25,7 @@ import {
 } from "@wirecat/cli-core/cli"
 import { Command } from "commander"
 import { configuration } from "../config.js"
-import { contextOf, openSource, readyToRead } from "../context.js"
+import { contextOf, openSource, readyToRead, sftpLater } from "../context.js"
 import { IDENTITY } from "../identity.js"
 import { type SecretKind, secretKindOf, sourceOf } from "../source.js"
 
@@ -81,9 +81,11 @@ const startCommand = () =>
     .action(async function (this: Command, args: { credentialStorage: TokenStorage }) {
       const { env, profile, secrets, settings } = contextOf(this)
       refuseCommandName(profile, commandWords(rootOf(this)), CLI)
-      const kind = secretKindOf(sourceOf(settings))
+      const source = sourceOf(settings)
+      if (source.files.kind === "sftp") throw sftpLater()
+      const kind = secretKindOf(source)
       // A secret is never an argument: it would land in shell history and in the run record (WC-SECR-5).
-      const password = kind ? (await readSecret(ASKED[kind], secretInputOf(this))).trim() : undefined
+      const password = kind ? await readSecret(ASKED[kind], secretInputOf(this)) : undefined
       if (kind && !password) throw new CliError("validation_error", "no password was given")
       const checked = await check(this, password)
       const storedIn = kind && password ? secrets.write(profile, password, args.credentialStorage) : null

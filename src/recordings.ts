@@ -30,7 +30,29 @@ export interface Recording extends FileEntry {
 
 export const mimeOf = (name: string): string | null => FORMATS[name.split(".").pop()?.toLowerCase() ?? ""] ?? null
 
-const literal = (text: string) => text.replace(/[.+^${}()|[\]\\?]/g, "\\$&")
+const literal = (text: string) => text.replace(/[.+^${}()|[\]\\?*]/g, "\\$&")
+
+/** `*` is any text; a call id must end where a digit cannot follow, so `1730383509.4` never takes `….42.wav`. */
+const matcherOf = (pattern: string, values: Record<string, string>) =>
+  new RegExp(
+    `^${pattern
+      .split(/(\{\w+\}|\*)/)
+      .map((part) => {
+        if (part === "*") return ".*"
+        const key = /^\{(\w+)\}$/.exec(part)?.[1]
+        if (key === undefined) return literal(part)
+        const value = values[key]
+        if (value === undefined) return literal(part)
+        return ["uniqueid", "linkedid"].includes(key) ? `(?<![0-9])${literal(value)}(?![0-9])` : literal(value)
+      })
+      .join("")}$`,
+  )
+
+/** Inside `root` only: `recordingfile` comes from the CDR, which a caller's own caller ID can shape. */
+const within = (root: string, path: string) => {
+  const relative = posix.relative(posix.resolve(root), posix.resolve(root, path))
+  return relative !== "" && !relative.startsWith("..") && !posix.isAbsolute(relative)
+}
 
 /**
  * The recordings of one call's row: from its `recordingfile` when the CDR has one, else by the patterns, in order.
@@ -64,7 +86,7 @@ export const recordingFinder = (
     if (row.recordingfile) {
       const name = row.recordingfile
       const candidates = name.startsWith("/") ? [name] : [posix.join(root, yyyy, mm, dd, name), posix.join(root, name)]
-      for (const path of candidates) {
+      for (const path of candidates.filter((candidate) => within(root, candidate))) {
         const entry = await files.stat(path)
         if (entry) return settled(entry)
       }
@@ -80,7 +102,8 @@ export const recordingFinder = (
     for (const pattern of patterns) {
       const filled = pattern.replace(/\{(\w+)\}/g, (whole, key: string) => values[key] ?? whole)
       const folder = posix.join(root, posix.dirname(filled))
-      const matcher = new RegExp(`^${literal(posix.basename(filled)).replace(/\*/g, ".*")}$`)
+      if (!within(root, posix.join(folder, "x"))) continue
+      const matcher = matcherOf(posix.basename(pattern), values)
       const found = (await listing(folder)).filter(({ name }) => matcher.test(name) && mimeOf(name))
       const newest = found.sort((a, b) => b.mtimeMs - a.mtimeMs)[0]
       if (newest) return settled(newest)

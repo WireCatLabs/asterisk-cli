@@ -81,18 +81,30 @@ export function* csvLines(text: string): Generator<string[]> {
   if (row.length > 1 || row[0] !== "") yield row
 }
 
-/** Every row of a Master.csv, keyed by column name; a row with another column count than the first is skipped. */
+/**
+ * Every row of a Master.csv, keyed by column name. Without `named`, each line's own count names its columns: turning
+ * `loguniqueid` or `newcdrcolumns` on later makes the newer lines longer than the older ones. A line that fits no
+ * layout is skipped and counted; a file where no line fits is refused, so a wrong guess is never silent.
+ */
 export const csvRows = (text: string, named?: readonly string[]): { rows: RawRow[]; skipped: number } => {
   const rows: RawRow[] = []
-  let columns: readonly string[] | undefined = named
   let skipped = 0
+  let refusal: unknown
   for (const line of csvLines(text)) {
-    columns ??= csvColumns(line)
+    let columns: readonly string[]
+    try {
+      columns = named ?? csvColumns(line)
+    } catch (error) {
+      refusal ??= error
+      skipped++
+      continue
+    }
     if (line.length !== columns.length) {
       skipped++
       continue
     }
     rows.push(Object.fromEntries(columns.map((name, index) => [name, line[index] ?? null])))
   }
+  if (rows.length === 0 && refusal) throw refusal
   return { rows, skipped }
 }

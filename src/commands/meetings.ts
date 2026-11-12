@@ -26,6 +26,7 @@ import { Command } from "commander"
 import type { CdrRow } from "../cdr/record.js"
 import { configuration } from "../config.js"
 import type { OpenedSource } from "../context.js"
+import type { FileAccess } from "../files.js"
 import { IDENTITY } from "../identity.js"
 import type { Recording } from "../recordings.js"
 import { sourceOf } from "../source.js"
@@ -36,6 +37,7 @@ interface Opened {
   accountId: number
   env: NodeJS.ProcessEnv
   asterisk: () => Promise<OpenedSource>
+  files: () => Promise<FileAccess>
   source: () => MeetingSource
   close: () => Promise<void>
 }
@@ -141,7 +143,7 @@ export const meetingsMount = () => {
           transcribeCommand({
             store: () => need().store.meetings,
             accountId: () => need().accountId,
-            files: async () => (await need().asterisk()).files,
+            files: () => need().files(),
             env: () => need().env,
             signal: () => (action ? environmentOf(action).signal : undefined),
             progress: (line) => (action ? environmentOf(action).streams?.diagnostic(line) : undefined),
@@ -182,7 +184,7 @@ export const meetingsMount = () => {
       if (!at || !commands.has(at)) return
       const run = environmentOf(at)
       const { settings, env } = baseContext(at, configuration.resolveSettings)
-      const [{ openProfileStore }, { openSource }, { callSource }, { recordingFinder }] = await Promise.all([
+      const [{ openProfileStore }, { openFiles, openSource }, { callSource }, { recordingFinder }] = await Promise.all([
         import("../store.js"),
         import("../context.js"),
         import("../call-source.js"),
@@ -192,11 +194,16 @@ export const meetingsMount = () => {
       const reads = metaOf(at).effects?.local === "read" || (readsOverMcp(at) && !fetchesOnly(at))
       const { store, accountId } = await openProfileStore(env, settings.profile, reads)
       let asterisk: Promise<OpenedSource> | undefined
+      let files: Promise<FileAccess> | undefined
       let closed: Promise<void> | undefined
       const close = () =>
         (closed ??= Promise.all([
           store.close(),
           asterisk?.then(
+            (one) => one.close(),
+            () => undefined,
+          ),
+          files?.then(
             (one) => one.close(),
             () => undefined,
           ),
@@ -212,6 +219,7 @@ export const meetingsMount = () => {
         env,
         close,
         asterisk: opening,
+        files: () => (files ??= openFiles(at)),
         source: () => {
           if (source) return source
           const { phoneRegion, extension, files } = sourceOf(settings)

@@ -19,7 +19,18 @@ export interface FileAccess {
   close(): Promise<void>
 }
 
-const missing = (error: unknown) => ["ENOENT", "ENOTDIR"].includes(String((error as { code?: unknown }).code))
+const codeOf = (error: unknown) => String((error as { code?: unknown }).code ?? "")
+const missing = (error: unknown) => ["ENOENT", "ENOTDIR"].includes(codeOf(error))
+
+/** Node's own text quotes the path, and a recording's path holds the caller's number (WC-SECR-6). */
+const unreadable = (error: unknown): CliError =>
+  ["EACCES", "EPERM"].includes(codeOf(error))
+    ? new CliError("permission_error", "this user may not read a file or folder of the PBX; grant it read access", {
+        reason: "file.denied",
+      })
+    : new CliError("provider_error", `a file or folder of the PBX could not be read (${codeOf(error) || "no code"})`, {
+        reason: "file.unreadable",
+      })
 
 // No path in the text: a recording's file name often holds the caller's number (WC-SECR-6).
 const tooLarge = (maxBytes: number) =>
@@ -38,7 +49,7 @@ export const localFiles = (): FileAccess => ({
         : null
     } catch (error) {
       if (missing(error)) return null
-      throw error
+      throw unreadable(error)
     }
   },
   list: async (folder) => {
@@ -53,16 +64,20 @@ export const localFiles = (): FileAccess => ({
       )
     } catch (error) {
       if (missing(error)) return []
-      throw error
+      throw unreadable(error)
     }
   },
   read: async (path, maxBytes) => {
     const found = await stat(path).catch((error: unknown) => {
       if (missing(error)) throw new CliError("not_found", "the file is not there any more", { reason: "file.missing" })
-      throw error
+      throw unreadable(error)
     })
     if (found.size > maxBytes) throw tooLarge(maxBytes)
-    return new Uint8Array(await readFile(path))
+    return new Uint8Array(
+      await readFile(path).catch((error: unknown) => {
+        throw unreadable(error)
+      }),
+    )
   },
   close: async () => {},
 })

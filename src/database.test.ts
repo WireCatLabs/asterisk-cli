@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { CliError, memoryKeyring } from "@wirecat/cli-base"
 import { beforeEach, expect, it } from "vitest"
 import type { RawRow } from "./cdr/record.js"
 import type { SqlCdr, SqlSource } from "./cdr/sql.js"
-import { configure, freshFolders, runCli } from "./testing/harness.js"
+import type { Speech } from "./commands/transcribe.js"
+import { asteriskFolder, configure, freshFolders, runCli } from "./testing/harness.js"
 
 const PASSWORD = "test-db-password-7f3a"
 
@@ -51,8 +54,8 @@ const fakeTable = () => {
       })
     return {
       rows: async (since) => {
-        asked.push(since)
-        return ROWS.filter((row) => String(row.calldate) >= since)
+        asked.push(since.wall)
+        return ROWS.filter((row) => String(row.calldate) >= since.wall)
       },
       close: async () => {},
     }
@@ -129,4 +132,39 @@ it("--offline refuses a database source before it connects", async () => {
   })
   expect(synced.json()).toMatchObject({ error: { reason: "offline.refused" } })
   expect(table.asked).toEqual([])
+})
+
+it("meetings transcribe reads only the recordings: no password and no database, even --offline", async () => {
+  const wav = readFileSync(new URL(`../examples/monitor/2026/10/31/${ROWS[0]?.recordingfile}`, import.meta.url))
+  const root = asteriskFolder({ [`monitor/2026/10/31/${ROWS[0]?.recordingfile}`]: wav })
+  await configure({ recordings_path: join(root, "monitor") })
+  const table = fakeTable()
+  const keyring = memoryKeyring()
+  await runCli(["office", "session", "start"], { keyring, sql: table.open, stdin: `${PASSWORD}\n` })
+  const synced = await runCli(["office", "meetings", "sync", "--since-time", "2026-10-31T00:00:00Z", "--json"], {
+    keyring,
+    sql: table.open,
+  })
+  expect(synced.code, synced.err).toBe(0)
+  expect((await runCli(["office", "session", "end", "--json"], { keyring })).code).toBe(0)
+  const asked = table.asked.length
+  const speech: Speech = {
+    findModel: ((id: string) => ({ id })) as Speech["findModel"],
+    isInstalled: () => true,
+    modelsDirectory: () => "/models",
+    localSpeechRecognitionModel: ((model: string) => ({ engine: "sherpa-onnx", model, version: "1" })) as never,
+    decodeChannels: async () => ({ channels: [{ samples: new Float32Array(80_000), rate: 8000 }], mixed: true }),
+    recognizeLocalPieces: async () => [{ start: 0, end: 3, text: "оплатим в пятницу" }],
+  }
+  const done = await runCli(["office", "meetings", "transcribe", "--offline", "--json"], { keyring, speech })
+  expect(done.code, done.err).toBe(0)
+  expect(done.json().item).toMatchObject({ transcribed: 1 })
+  expect(table.asked).toHaveLength(asked)
+})
+
+it("session start refuses files_from sftp before it asks any password", async () => {
+  await configure({ files_from: "sftp", sftp_host: "pbx.example.test", sftp_user: "reader" })
+  const started = await runCli(["office", "session", "start", "--json"], { keyring: memoryKeyring(), stdin: "x\n" })
+  expect(started.json()).toMatchObject({ error: { code: "configuration_error", reason: "source.bad-setting" } })
+  expect(started.err).not.toContain("password of the SFTP user")
 })
