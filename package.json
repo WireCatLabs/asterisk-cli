@@ -1,7 +1,7 @@
 {
   "name": "@wirecat/asterisk-cli",
   "version": "0.1.0",
-  "description": "A new WireCat CLI, started from cli-template",
+  "description": "Asterisk PBX calls (CDR from Master.csv, MySQL or PostgreSQL) and their recordings as meetings in the local WireCat store, transcribed on your computer, for AI agents. Read-only.",
   "license": "Apache-2.0",
   "author": "Viacheslav Ptsarev",
   "repository": {
@@ -84,5 +84,17 @@
   "publishConfig": {
     "access": "public"
   },
-  "mcpName": "dev.wirecat/asterisk-cli"
+  "mcpName": "dev.wirecat/asterisk-cli",
+  "keywords": [
+    "asterisk",
+    "freepbx",
+    "pbx",
+    "cdr",
+    "call-recordings",
+    "transcription",
+    "mcp",
+    "ai-agents",
+    "wirecat",
+    "cli"
+  ]
 }
