@@ -6,8 +6,8 @@ import {
   commandsCommand,
   configCommand,
   createProgram as createSharedProgram,
+  type FirstScreen,
   outputFor,
-  ProfileTokenStore,
   type ProgramDefinition,
   type ProgramOptions,
   type RunOptions,
@@ -18,11 +18,12 @@ import {
 } from "@wirecat/cli-core/cli"
 import { appUpdate } from "@wirecat/cli-core/update"
 import type { Command } from "commander"
-import { commentsCommand } from "./commands/comments.js"
+import { meetingsMount } from "./commands/meetings.js"
+import { modelsCommand } from "./commands/models.js"
 import { sessionCommand } from "./commands/session.js"
 import { configuration } from "./config.js"
+import { readyToRead } from "./context.js"
 import { IDENTITY, PACKAGE, SKILL } from "./identity.js"
-import { SERVICE } from "./sample/transport.js"
 
 const update = appUpdate({
   packageName: PACKAGE,
@@ -38,36 +39,60 @@ const update = appUpdate({
 
 const mcpCommand = () =>
   appMcpCommand(IDENTITY, configuration, {
-    name: SERVICE,
-    // SAMPLE: name the kinds of text other people wrote that your answers carry (WC-MCP-11).
-    untrusted: ["comment text", "author names"],
-    permissionExample: "comments.create=deny",
+    name: "Asterisk",
+    untrusted: [
+      "call transcripts",
+      "caller names from caller ID",
+      "phone numbers",
+      "recording file names",
+      "CDR user fields",
+    ],
+    permissionExample: "meetings.sync=deny",
     skill: SKILL,
-    signedIn: (profile, env, keyring) =>
-      new ProfileTokenStore({ app: IDENTITY, env, ...(keyring ? { keyring } : {}) }).signedIn(profile),
+    signedIn: (profile, env, keyring) => readyToRead(profile, env, keyring),
   })
 
-export const definition = (): ProgramDefinition => ({
-  app: IDENTITY,
-  // The whole object: cli-core refuses a command by its key only when it gets the permission table too.
-  configuration,
-  commands: () => [
-    commandsCommand(IDENTITY),
-    sessionCommand(),
-    commentsCommand(),
-    appDoctorCommand(IDENTITY, configuration, { packageName: PACKAGE }),
-    skillCommand(IDENTITY, SKILL),
-    mcpCommand(),
-    upgradeCommand(IDENTITY, PACKAGE, (command) => ({
-      ...outputFor(command),
-      installer: () => update.installer({}),
-      latest: () => update.latest({}),
-      install: (argv) => update.runUpdate(argv, {}),
-    })),
-    configCommand(IDENTITY, configuration),
-    runsCommand(IDENTITY),
+const FIRST_SCREEN: FirstScreen = {
+  pitch:
+    "Asterisk PBX calls in a local store: transcribe the recordings on this computer, then read and search offline.",
+  can: [
+    { command: "meetings sync", does: "import the call records and link their recordings" },
+    { command: "meetings transcribe", does: "turn new recordings into text, locally" },
+    { command: 'meetings list "duration_ms>=60000"', does: "the calls of a minute or more, newest first" },
+    { command: "meetings transcript <meeting>", does: "what was said in one call" },
+    { command: "mcp serve", does: "the calls for an agent, within the profile's permissions" },
   ],
-})
+  start: `${IDENTITY.command} office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv`,
+}
+
+export const definition = (): ProgramDefinition => {
+  const meetings = meetingsMount()
+  return {
+    app: IDENTITY,
+    // The whole object: cli-core refuses a command by its key only when it gets the permission table too.
+    configuration,
+    firstScreen: FIRST_SCREEN,
+    configure: meetings.configure,
+    prepare: meetings.prepare,
+    commands: () => [
+      commandsCommand(IDENTITY),
+      sessionCommand(),
+      ...meetings.commands(),
+      modelsCommand(),
+      appDoctorCommand(IDENTITY, configuration, { packageName: PACKAGE }),
+      skillCommand(IDENTITY, SKILL),
+      mcpCommand(),
+      upgradeCommand(IDENTITY, PACKAGE, (command) => ({
+        ...outputFor(command),
+        installer: () => update.installer({}),
+        latest: () => update.latest({}),
+        install: (argv) => update.runUpdate(argv, {}),
+      })),
+      configCommand(IDENTITY, configuration),
+      runsCommand(IDENTITY),
+    ],
+  }
+}
 
 export const createProgram = (options?: ProgramOptions): Command => createSharedProgram(definition(), options)
 
