@@ -1,6 +1,6 @@
 {
   "name": "@wirecat/asterisk-cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A new WireCat CLI, started from cli-template",
   "license": "Apache-2.0",
   "author": "Viacheslav Ptsarev",
