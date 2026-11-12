@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   ci:
-    uses: WireCatLabs/cli-base/.github/workflows/node-ci.yml@34a442be7352a59598b0bdcccc03186ae1f6a728 # v0.85.1
+    uses: WireCatLabs/cli-base/.github/workflows/node-ci.yml@c1f6e9811a0c6d9d6f45df7ba06803702b4dbd7d # v0.95.0
     with:
       pack: ${{ inputs.pack || false }}
       bun-run: pnpm build && pnpm smoke:bun
