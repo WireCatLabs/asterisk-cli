@@ -1,0 +1,12 @@
+name: Changelog guard
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    uses: WireCatLabs/cli-base/.github/workflows/changelog-guard.yml@fe3430bae73bc7ccb5854124343fcb4549c26243 # cli-base main at #555: the guard accepts changes/ fragments

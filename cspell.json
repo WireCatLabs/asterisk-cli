@@ -1,0 +1,17 @@
+{
+  "version": "0.2",
+  "import": ["./config/wirecat/cspell.json"],
+  "ignorePaths": ["docs/commands.md", "docs/dev/**"],
+  "words": [
+    "asterisk",
+    "whatsapp-cli",
+    "tg-cli",
+    "max-cli",
+    "mail-cli",
+    "drive-cli",
+    "gcal-cli",
+    "zoom-cli",
+    "cli-memo",
+    "bitrix24-cli"
+  ]
+}

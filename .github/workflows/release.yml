@@ -1,0 +1,402 @@
+name: Release
+
+# Started by bin/release. npm trusts this file by name (trusted publishing), so there is no npm
+# token anywhere in this repository and renaming the file breaks publishing until npm is told.
+#
+# Full validation builds, checks and packs once; `build` verifies the immutable tarball.
+# The job able to publish runs no code from our dependencies; `publish` holds the OIDC permission and only
+# runs `npm publish` on that file; `tag` is the only one that may write to the repository.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and pack, run npm publish --dry-run, do not tag"
+        type: boolean
+        default: false
+      commit:
+        description: "The commit bin/release checked; the run refuses any other"
+        type: string
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # Every job builds github.sha, the tip of main when the run started — which a merge can move past the commit
+  # bin/release checked.
+  checked-commit:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - env:
+          COMMIT: ${{ inputs.commit }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          [ "$COMMIT" = "$GITHUB_SHA" ] && exit 0
+          [ "$DRY_RUN" = "true" ] && [ -z "$COMMIT" ] && exit 0
+          echo "::error::this run is at $GITHUB_SHA, but bin/release checked '${COMMIT}' — nothing is published"
+          exit 1
+
+  validation:
+    needs: checked-commit
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      pack: true
+
+  checks:
+    needs: checked-commit
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    uses: WireCatLabs/cli-base/.github/workflows/release-checks.yml@34a442be7352a59598b0bdcccc03186ae1f6a728 # v0.85.1
+
+  build:
+    needs: [checks, validation]
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      name: ${{ steps.version.outputs.name }}
+      package-sha256: ${{ steps.digest.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: validated-package
+          path: validated
+      - name: Verify validated package integrity
+        env:
+          EXPECTED_SHA256: ${{ needs.validation.outputs.package-sha256 }}
+        run: |
+          set -- ./validated/*.tgz
+          [ "$#" -eq 1 ] && [ -f "$1" ] || { echo "Expected exactly one package tarball"; exit 1; }
+          [ -n "$EXPECTED_SHA256" ] || { echo "Missing validation digest"; exit 1; }
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$1" | sha256sum --check -
+
+      # A 404 for a package npm has never seen means "not published yet", the same as a missing version.
+      - name: version not yet on npm
+        id: version
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          name=$(node -p 'require("./package.json").name')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          if [ "$DRY_RUN" != "true" ] && npm view "$name@$version" version --prefer-online >/dev/null 2>&1; then
+            echo "::error::$version is already on npm — raise the version first"
+            exit 1
+          fi
+
+      # A CLI that changes the package after the check above unpacks the new file and compares it with the checked
+      # one before this step (gcal-cli adds its Google client this way); `publish` refuses any other file.
+      - name: digest of the package to publish
+        id: digest
+        run: |
+          set -- ./validated/*.tgz
+          echo "sha256=$(sha256sum "$1" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package
+          path: validated/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  package-dry-run:
+    needs: build
+    if: inputs.dry_run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package
+      # Permit checking an already published version; this job has no publishing permissions.
+      - run: npm publish ./*.tgz --access public --dry-run --force
+
+  publish:
+    needs: build
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      NAME: ${{ needs.build.outputs.name }}
+      EXPECTED_SHA256: ${{ needs.build.outputs.package-sha256 }}
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package
+
+      # npm, not pnpm: npm's trusted publishing is the documented path. A tarball runs no
+      # lifecycle scripts, and nothing is installed here. A tarball path needs its ./.
+      - run: |
+          set -- ./*.tgz
+          [ "$#" -eq 1 ] && [ -f "$1" ] && [ -n "$EXPECTED_SHA256" ] || { echo "::error::no single package to verify"; exit 1; }
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$1" | sha256sum --check -
+          npm publish "$1" --access public
+
+      - name: wait for npm to show the version
+        run: |
+          # The version's own document, not `npm view`: on 2026-10-01 the document answered while the
+          # version list `npm view` reads was still stale for minutes.
+          encoded=$(node -p 'encodeURIComponent(process.argv[1]).replace("%40", "@")' "$NAME")
+          for _ in $(seq 90); do
+            curl -sfo /dev/null "https://registry.npmjs.org/$encoded/$VERSION" && exit 0
+            sleep 10
+          done
+          echo "::error::npm does not show $VERSION after fifteen minutes — not tagging; tag v$VERSION by hand once it does"
+          exit 1
+
+  tag:
+    needs: [build, publish]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "$VERSION"
+          git push origin "v$VERSION"
+
+      - name: GitHub release from the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          awk -v v="$VERSION" '$0 ~ "^## "v" " {on=1; next} /^## / && on {exit} on' CHANGELOG.md |
+            gh release create "v$VERSION" --title "$VERSION" --notes-file -
+
+  # The template's own release publishes @wirecat/cli-template, which has no skill on ClawHub, and ClawHub's wirecat
+  # owner takes only WireCat's own packages: a CLI published under another scope publishes no skill there.
+  # The same ClawHub CLI commit as `clawhub`, run here rather than through ClawHub's reusable workflow: that workflow
+  # asks for id-token: write, and an OIDC token has no place in a job that runs third-party code outside the npm
+  # environment. A dry run needs no ClawHub token either. Bump CLAWHUB_SHA together with `clawhub`'s.
+  clawhub-dry-run:
+    needs: build
+    if: >-
+      inputs.dry_run && github.repository != 'WireCatLabs/cli-template'
+      && startsWith(needs.build.outputs.name, '@wirecat/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SKILL_PATH: skills/asterisk-cli
+      CLAWHUB_SLUG: wirecat-asterisk
+      CLAWHUB_SHA: 52358852d3510f1150756d48e8a72cb8c8e698e0
+      CLAWHUB_URL: https://clawhub.ai
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openclaw/clawhub
+          ref: ${{ env.CLAWHUB_SHA }}
+          path: clawhub-source
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+        working-directory: clawhub-source
+      - name: check the skill would publish
+        run: |
+          bun clawhub-source/packages/clawhub/src/cli.ts --workdir "$GITHUB_WORKSPACE" \
+            --site "$CLAWHUB_URL" --registry "$CLAWHUB_URL" skill publish "$SKILL_PATH" --slug "$CLAWHUB_SLUG" --json \
+            --owner wirecat --tags latest --source-repo "$GITHUB_REPOSITORY" --source-commit "$GITHUB_SHA" \
+            --source-path "$SKILL_PATH" --source-ref "$GITHUB_REF" --dry-run
+
+  # After the tag, so a ClawHub failure never holds back the npm release. The same CLI commit as the dry run, but run
+  # here instead of through ClawHub's workflow, which GitHub cannot let fail: a version stuck pending ClawHub's scan
+  # is not counted as the latest, so the next publish picks it again and gets "already exists" (openclaw/clawhub#4046).
+  # That one error warns; any other fails. Bump CLAWHUB_SHA together with clawhub-dry-run's.
+  clawhub:
+    needs: [build, tag]
+    if: >-
+      ${{ !inputs.dry_run && github.repository != 'WireCatLabs/cli-template'
+      && startsWith(needs.build.outputs.name, '@wirecat/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      SKILL_PATH: skills/asterisk-cli
+      CLAWHUB_SLUG: wirecat-asterisk
+      CLAWHUB_SHA: 52358852d3510f1150756d48e8a72cb8c8e698e0
+      CLAWHUB_URL: https://clawhub.ai
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openclaw/clawhub
+          ref: ${{ env.CLAWHUB_SHA }}
+          path: clawhub-source
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+        working-directory: clawhub-source
+      - name: publish the skill
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+          CLAWHUB_CONFIG_PATH: ${{ runner.temp }}/clawhub-config.json
+        run: |
+          (umask 077; jq -n --arg r "$CLAWHUB_URL" --arg t "$CLAWHUB_TOKEN" '{registry: $r, token: $t}' > "$CLAWHUB_CONFIG_PATH")
+          status=0
+          output=$(bun clawhub-source/packages/clawhub/src/cli.ts --workdir "$GITHUB_WORKSPACE" \
+            --site "$CLAWHUB_URL" --registry "$CLAWHUB_URL" skill publish "$SKILL_PATH" --slug "$CLAWHUB_SLUG" --json \
+            --owner wirecat --tags latest --source-repo "$GITHUB_REPOSITORY" --source-commit "$GITHUB_SHA" \
+            --source-path "$SKILL_PATH" --source-ref "$GITHUB_REF" 2>&1) || status=$?
+          echo "$output"
+          if [ "$status" -ne 0 ] && grep -q "already exists" <<< "$output"; then
+            echo "::warning::ClawHub already has this skill version, still pending its stalled scan — not republished (openclaw/clawhub#4046)"
+            exit 0
+          fi
+          exit "$status"
+
+  mcp-registry-dry-run:
+    needs: build
+    if: inputs.dry_run && github.repository != 'WireCatLabs/cli-template'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      MCP_PUBLISHER_VERSION: 1.8.5
+      MCP_PUBLISHER_SHA256: 2d151ac57275c9a6684d9d22b1cba81058bab195ea0a162e8fce3c6a5ec32812
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: mcp-publisher
+        if: hashFiles('server.json') != ''
+        run: |
+          # Release downloads fail with 5xx or hang at times.
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 --max-time 60 --retry-max-time 120 \
+            -o mcp-publisher.tar.gz "https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+      - name: validate server.json
+        if: hashFiles('server.json') != ''
+        run: |
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
+          ./mcp-publisher validate
+
+  # After the tag, so a registry failure never holds back the npm release. A CLI without server.json, or without the
+  # key, publishes nothing and says so: the key proves wirecat.dev's DNS record (bin/setup-mcp-registry-key in
+  # wirecat-desktop), and the registry checks package.json's mcpName in the version npm already has.
+  mcp-registry:
+    needs: [build, tag]
+    if: >-
+      ${{ !inputs.dry_run && github.repository != 'WireCatLabs/cli-template'
+      && startsWith(needs.build.outputs.name, '@wirecat/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      MCP_PUBLISHER_VERSION: 1.8.5
+      MCP_PUBLISHER_SHA256: 2d151ac57275c9a6684d9d22b1cba81058bab195ea0a162e8fce3c6a5ec32812
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: publish to the MCP Registry
+        env:
+          MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: |
+          if [ ! -f server.json ]; then
+            echo "::notice::no server.json — $VERSION is not published to the MCP Registry"
+            exit 0
+          fi
+          if [ -z "$MCP_REGISTRY_PRIVATE_KEY" ]; then
+            echo "::notice::MCP_REGISTRY_PRIVATE_KEY is not set — $VERSION is not published to the MCP Registry"
+            exit 0
+          fi
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 --max-time 60 --retry-max-time 120 \
+            -o mcp-publisher.tar.gz "https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
+          ./mcp-publisher login dns --domain wirecat.dev --private-key "$MCP_REGISTRY_PRIVATE_KEY"
+          ./mcp-publisher publish
+
+  # A package outside @wirecat is named io.github.<owner>/<name>, a namespace the registry grants to this repository's
+  # GitHub OIDC token; its own job, so WireCat's DNS login above never holds an OIDC token.
+  mcp-registry-github:
+    needs: [build, tag]
+    if: >-
+      ${{ !inputs.dry_run && github.repository != 'WireCatLabs/cli-template'
+      && !startsWith(needs.build.outputs.name, '@wirecat/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      MCP_PUBLISHER_VERSION: 1.8.5
+      MCP_PUBLISHER_SHA256: 2d151ac57275c9a6684d9d22b1cba81058bab195ea0a162e8fce3c6a5ec32812
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: publish to the MCP Registry
+        run: |
+          if [ ! -f server.json ]; then
+            echo "::notice::no server.json — $VERSION is not published to the MCP Registry"
+            exit 0
+          fi
+          want="io.github.${GITHUB_REPOSITORY}"
+          if [ "$(jq -r '.mcpName // ""' package.json)" != "$want" ]; then
+            echo "::error::package.json needs \"mcpName\": \"$want\" for the MCP Registry; add it, then release again"
+            exit 1
+          fi
+          if [ "$(jq -r '.name // ""' server.json)" != "$want" ]; then
+            echo "::error::server.json needs \"name\": \"$want\" for the MCP Registry; set it, then release again"
+            exit 1
+          fi
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 --max-time 60 --retry-max-time 120 \
+            -o mcp-publisher.tar.gz "https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

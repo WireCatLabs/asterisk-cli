@@ -1,0 +1,43 @@
+{
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!.worktrees",
+      "!.claude",
+      "!pnpm-lock.yaml",
+      "!config/wirecat",
+      "!contracts/wirecat.json"
+    ]
+  },
+  "extends": ["./config/wirecat/biome.base.json"],
+  "plugins": [
+    {
+      "path": "./node_modules/@wirecat/cli-base/config/lint/no-own-settings.grit",
+      "includes": ["src/**", "!**/*.test.ts", "!src/testing/**"]
+    }
+  ],
+  "overrides": [
+    {
+      "includes": ["src/**", "!**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@modelcontextprotocol/**"],
+                    "message": "cli-core's appMcpCommand serves MCP; commands and services do not know the protocol"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

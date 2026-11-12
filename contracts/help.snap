@@ -1,0 +1,18 @@
+asterisk — a new WireCat CLI, started from cli-template
+
+Usage: asterisk <profile> <command> [options]
+Account commands start with your profile, a name you choose; none is ever assumed.
+
+Works with:
+  tg                      Telegram in the same local store: search, review and tasks offline
+  max                     MAX in the same local store: search, review and tasks offline
+  wa                      WhatsApp in the same local store: search, review and tasks offline
+  zm                      Zoom meetings: transcripts and summaries, searchable with your other WireCat data
+  drive                   Google Drive and Docs as local text, searchable with your other WireCat data
+  gcal                    Google Calendar events, searchable with your other WireCat data
+  memo context <person>   one person across messengers, mail, notes and meetings
+  mail                    IMAP mail in the same local store: search your mailbox offline, next to your other WireCat data
+
+Next:         asterisk commands      every command, by section
+              asterisk help options  output, offline, timeouts, dry run
+For agents:   asterisk skill show    rules and the discovery loop

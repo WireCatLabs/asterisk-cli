@@ -1,0 +1,150 @@
+name: Full validation
+
+on:
+  workflow_call:
+    inputs:
+      pack:
+        type: boolean
+        default: false
+      platforms:
+        type: boolean
+        default: false
+    outputs:
+      package-sha256:
+        value: ${{ jobs.ci.outputs.package-sha256 }}
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: WireCatLabs/cli-base/.github/workflows/node-ci.yml@34a442be7352a59598b0bdcccc03186ae1f6a728 # v0.85.1
+    with:
+      pack: ${{ inputs.pack || false }}
+      bun-run: pnpm build && pnpm smoke:bun
+      cli: true
+      bin: asterisk
+      platforms: ${{ inputs.pack || inputs.platforms || github.event_name == 'workflow_dispatch' }}
+      platform-run: |
+        node dist/bin/asterisk.js commands --json >/dev/null
+        node dist/bin/asterisk.js doctor --json >/dev/null
+      # contracts:upgrade needs local state of the CLI's own and a published version to upgrade from (WC-TEST-14).
+      # Once a CLI has both, it adds the script and removes this skip; see docs/dev/TESTING.md.
+      skip: |
+        contracts:upgrade
+      # Reads the lockfile, so a frozen install cannot hide a cli-core/cli-base peer mismatch: the packed CLI would
+      # get two cli-base copies and crash at start while every local test passes.
+      checks: |
+        pnpm peers check
+        bash scripts/audit.sh
+        pnpm smoke:node
+
+  # WC-TOOL-6: engines allows ^22.16.0; node-ci.yml runs Node 24 only.
+  node-22:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm build
+      - run: pnpm test
+      - run: pnpm smoke:node
+
+  # The template's own check: a CLI made from it has no kit/. Needs the network for npm and pnpm installs.
+  kit-e2e:
+    if: github.repository == 'WireCatLabs/cli-template'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm kit:e2e
+
+  # main's ruleset, the monthly minute and a parity group: the setup steps `new` prints, checked (cli-base new-cli.md).
+  repo-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm exec cli-dev repo-check --cli asterisk
+
+  version:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      # A warning, never a failure: a version npm already has is refused by bin/release, not here.
+      - name: version above main and npm
+        continue-on-error: true
+        run: |
+          pr=$(node -p 'require("./package.json").version')
+          git fetch -q --depth=1 origin main
+          main=$(git show FETCH_HEAD:package.json | node -p 'JSON.parse(require("fs").readFileSync(0)).version')
+          [ "$pr" != "$main" ] || exit 0
+          name=$(node -p 'require("./package.json").name')
+          latest=$(npm view "$name" version 2>/dev/null || true)
+          versions=$(npm view "$name" versions --json 2>/dev/null) || versions=""
+          next=$(pnpm exec cli-dev next-version "$pr" "$latest" "$versions")
+          [ "$next" != "$pr" ] || exit 0
+          echo "::warning file=package.json::version $pr is not above npm's latest ($latest); the next free one is $next"
+
+  prose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: install vale
+        env:
+          VALE_VERSION: 3.23.0
+          VALE_SHA256: cc35445a45186b8f0b01e11c01359694cf941e72cf6ab0fc44774f0e54c9d5fc
+        run: |
+          # Release downloads fail with 5xx or hang at times.
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 20 --max-time 60 --retry-max-time 120 \
+            -o vale.tar.gz "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          echo "${VALE_SHA256}  vale.tar.gz" | sha256sum -c -
+          tar -xzf vale.tar.gz vale
+      # Style findings are annotations until the rules are tuned; the tone rule (an error) fails.
+      # kit/ is the template's own; a CLI made from it has none.
+      - run: |
+          pages="README.md CHANGELOG.md docs/*.md $(git ls-files kit/README.md)"
+          ./vale --output line $pages | sed 's/^/::warning::/' || true
+          ./vale --minAlertLevel error $pages

@@ -1,0 +1,20 @@
+name: Start release
+
+# The Release button: lands the changelog fold or a raised version through a pull request, then starts release.yml
+# with the merged commit. The steps live in cli-base; see its docs/dev/release-workflow.md.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  release:
+    permissions:
+      contents: read
+      actions: write
+    uses: WireCatLabs/cli-base/.github/workflows/release-start.yml@34a442be7352a59598b0bdcccc03186ae1f6a728 # v0.85.1
+    with:
+      app-client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+      check: '[ -d kit ] || pnpm exec cli-dev live check --version "$VERSION"'
+    secrets:
+      app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
