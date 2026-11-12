@@ -1,26 +1,24 @@
-import { CliError } from "@wirecat/cli-base"
+import { CliError, type KeyringStore } from "@wirecat/cli-base"
 import {
   type BaseEnvironment,
   baseContext,
-  type EventSink,
   environmentOf,
   type GlobalFlags,
   ProfileTokenStore,
 } from "@wirecat/cli-core/cli"
-import { Pacer, pacePathFor } from "@wirecat/cli-core/sends"
 import type { Command } from "commander"
+import { type CdrReader, cdrReader } from "./cdr/reader.js"
+import type { SqlCdr, SqlSource } from "./cdr/sql.js"
 import { configuration } from "./config.js"
+import { type FileAccess, localFiles } from "./files.js"
 import { IDENTITY } from "./identity.js"
-import { type CommentsService, commentsService } from "./sample/comments.js"
-import { SERVICE, transport } from "./sample/transport.js"
+import { type SecretKind, type SourceConfig, secretKindOf, sourceOf } from "./source.js"
 
-/** What a test hands `run()` beside cli-core's own: the fake service in place of the network (WC-ARCH-10). */
-export interface ServiceEnvironment extends BaseEnvironment {
-  fetch?: typeof fetch
+/** What a test hands `run()` beside cli-core's own: files and a CDR table in place of the real ones (WC-ARCH-10). */
+export interface AsteriskEnvironment extends BaseEnvironment {
+  files?: FileAccess
+  sql?: (source: SqlSource, password: string) => Promise<SqlCdr>
 }
-
-// SAMPLE: your service's documented limit; this one is made up.
-const PACE = { perMinute: 120, burst: 20 }
 
 /**
  * Settings, keyring and the run come from cli-core's `baseContext` and nowhere else: a command that resolves settings
@@ -30,10 +28,10 @@ export const contextOf = (command: Command) => {
   const base = baseContext(command, configuration.resolveSettings)
   return {
     ...base,
-    environment: environmentOf<ServiceEnvironment>(command),
+    environment: environmentOf<AsteriskEnvironment>(command),
     flags: command.optsWithGlobals<GlobalFlags>(),
     profile: base.settings.profile,
-    tokens: new ProfileTokenStore({
+    secrets: new ProfileTokenStore({
       app: IDENTITY,
       env: base.env,
       ...(base.keyring ? { keyring: base.keyring } : {}),
@@ -42,37 +40,81 @@ export const contextOf = (command: Command) => {
   }
 }
 
-export const refuseOffline = (flags: GlobalFlags) => {
-  if (flags.offline)
-    throw new CliError("permission_error", `this needs ${SERVICE}; leave out --offline`, { reason: "offline.refused" })
+export const refuseOffline = (offline: boolean | undefined) => {
+  if (offline)
+    throw new CliError("permission_error", "this reads the Asterisk server; leave out --offline", {
+      reason: "offline.refused",
+    })
 }
 
-/** The service for one run, with the token it was given; `events` comes from `run()`, so each request is recorded. */
-export const serviceFor = (command: Command, token: string, events: EventSink) => {
-  const { environment, env, profile } = contextOf(command)
-  return commentsService(
-    transport({
-      token,
-      events,
-      signal: environment.signal,
-      ...(environment.fetch ? { fetch: environment.fetch } : {}),
-      pacer: new Pacer(pacePathFor(IDENTITY, profile, env), PACE),
-    }),
-  )
+export interface OpenedSource {
+  source: SourceConfig
+  files: FileAccess
+  reader: CdrReader
+  close(): Promise<void>
 }
 
-/** The profile's saved token, or an authentication error that says how to sign in. Read before any request. */
-export const tokenOf = (command: Command): string => {
-  const { flags, profile, tokens } = contextOf(command)
-  refuseOffline(flags)
-  return tokens.need(profile)
+export const sftpLater = () =>
+  new CliError("configuration_error", "files_from sftp comes with the next release; mount the folder for now", {
+    reason: "source.bad-setting",
+  })
+
+const filesFor = async (source: SourceConfig, environment: AsteriskEnvironment, offline: boolean | undefined) => {
+  if (environment.files) return environment.files
+  if (source.files.kind === "local") return localFiles()
+  refuseOffline(offline)
+  throw sftpLater()
+}
+
+/** The recordings alone, for `meetings transcribe`: no CDR, so no database and no password. */
+export const openFiles = (command: Command): Promise<FileAccess> => {
+  const { settings, environment } = contextOf(command)
+  return filesFor(sourceOf(settings), environment, settings.offline)
 }
 
 /**
- * Every remote call goes through here: inside cli-core's run, so `--timeout` bounds it, a failure or `--record` keeps
- * a run named after the command, and the transport's requests land in that run (WC-LIFE-5, WC-LIFE-15).
+ * The profile's Asterisk, opened for one command: its files and its CDR. A database is reached only here, with the
+ * password `session start` kept, or `password` while it is being checked.
  */
-export const withService = <T>(command: Command, body: (service: CommentsService) => Promise<T>): Promise<T> => {
-  const token = tokenOf(command)
-  return contextOf(command).run((events) => body(serviceFor(command, token, events)))
+export const openSource = async (command: Command, password?: string): Promise<OpenedSource> => {
+  const { settings, environment, secrets, profile } = contextOf(command)
+  const source = sourceOf(settings)
+  const kind: SecretKind = secretKindOf(source)
+  const secret = password ?? (kind ? secrets.need(profile) : undefined)
+  if (source.cdr.kind !== "csv") refuseOffline(settings.offline)
+  const files = await filesFor(source, environment, settings.offline)
+  const reader = await cdrReader(source, files, {
+    password: kind === "db" ? secret : undefined,
+    ...(environment.signal ? { signal: environment.signal } : {}),
+    ...(environment.sql ? { sql: environment.sql } : {}),
+  }).catch(async (error: unknown) => {
+    await files.close()
+    throw error
+  })
+  return {
+    source,
+    files,
+    reader,
+    close: async () => {
+      await reader.close()
+      await files.close()
+    },
+  }
+}
+
+/**
+ * Whether a profile can read its calls: its source is set up, and the password that source needs is saved. A profile
+ * on a local Master.csv needs none. For `session list` and the MCP server, which name a profile but run no command.
+ */
+export const readyToRead = (profile: string, env: NodeJS.ProcessEnv, keyring?: KeyringStore): boolean => {
+  try {
+    // biome-ignore lint/plugin/no-own-settings: no command runs here to give baseContext; this reads another profile
+    const settings = configuration.resolveSettings({ profile }, { env, readOnly: true })
+    const kind = secretKindOf(sourceOf(settings))
+    return (
+      kind === null || new ProfileTokenStore({ app: IDENTITY, env, ...(keyring ? { keyring } : {}) }).signedIn(profile)
+    )
+  } catch {
+    return false
+  }
 }

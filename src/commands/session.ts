@@ -25,15 +25,30 @@ import {
 } from "@wirecat/cli-core/cli"
 import { Command } from "commander"
 import { configuration } from "../config.js"
-import { contextOf, refuseOffline, serviceFor, withService } from "../context.js"
+import { contextOf, openSource, readyToRead, sftpLater } from "../context.js"
 import { IDENTITY } from "../identity.js"
-import { SERVICE } from "../sample/transport.js"
-
-// `session start | status | end | list` is every provider CLI's sign-in (WC-ACCT-12). Keep it; replace the token
-// prompt and the `me` check with your service's. A service with OAuth signs in through cli-core's oauth module
-// instead (WC-SECR-22); see gcal-cli's src/commands/session.ts.
+import { type SecretKind, secretKindOf, sourceOf } from "../source.js"
 
 const CLI = IDENTITY.command
+
+const ASKED: Record<Exclude<SecretKind, null>, string> = {
+  db: "password of the CDR database user: ",
+  sftp: "password of the SFTP user: ",
+}
+
+/** Reads the newest hour of call records: proof that the settings and the password reach the CDR, changing nothing. */
+const check = async (command: Command, password?: string) => {
+  const { run } = contextOf(command)
+  return run(async () => {
+    const opened = await openSource(command, password)
+    try {
+      const { rows } = await opened.reader.rows(Date.now() - 60 * 60 * 1000)
+      return { cdr: opened.source.cdr.kind, calls_last_hour: rows.length }
+    } finally {
+      await opened.close()
+    }
+  })
+}
 
 const answer = (command: Command, item: unknown) => renderAnswer(command, outputFor(command), itemOf(item))
 
@@ -48,50 +63,66 @@ const startCommand = () =>
       effects: FETCH,
       lifetime: "interactive",
       mcp: false,
-      examples: [`${CLI} personal session start`, `${CLI} personal session start --credential-storage file`],
+      examples: [`${CLI} office session start`, `${CLI} office session start --credential-storage file`],
     }),
   )
-    .summary(`sign in to ${SERVICE} with an API token`)
+    .summary("check the profile's Asterisk source and keep its password")
     .description(
-      `sign this profile in: the ${SERVICE} API token is asked hidden or read from stdin, never taken as an ` +
-        "argument, checked against the service, and only then kept in the keyring, or in a private file",
+      "check that this profile reaches its call records, set with config set: a database password, or an SFTP " +
+        "password when no key file is set, is asked hidden or read from stdin, never taken as an argument, checked, " +
+        "and only then kept in the keyring, or in a private file; Master.csv on this computer needs none",
     )
     .option(
       "--credential-storage <storage>",
-      "where the token is kept: keyring, which falls back to a private file by itself, or file",
+      "where the password is kept: keyring, which falls back to a private file by itself, or file",
       storageOf,
       "keyring" as TokenStorage,
     )
     .action(async function (this: Command, args: { credentialStorage: TokenStorage }) {
-      const { env, flags, profile, tokens, run } = contextOf(this)
+      const { env, profile, secrets, settings } = contextOf(this)
       refuseCommandName(profile, commandWords(rootOf(this)), CLI)
-      refuseOffline(flags)
+      const source = sourceOf(settings)
+      if (source.files.kind === "sftp") throw sftpLater()
+      const kind = secretKindOf(source)
       // A secret is never an argument: it would land in shell history and in the run record (WC-SECR-5).
-      const token = (await readSecret(`${SERVICE} API token: `, secretInputOf(this))).trim()
-      if (!token) throw new CliError("validation_error", "no token was given")
-      const user = await run((events) => serviceFor(this, token, events).me())
-      const storedIn = tokens.write(profile, token, args.credentialStorage)
-      rememberAccount(IDENTITY, profile, user.id, env)
-      answer(this, { profile, state: "saved", stored_in: storedIn, verified: true, user })
+      const password = kind ? await readSecret(ASKED[kind], secretInputOf(this)) : undefined
+      if (kind && !password) throw new CliError("validation_error", "no password was given")
+      const checked = await check(this, password)
+      const storedIn = kind && password ? secrets.write(profile, password, args.credentialStorage) : null
+      rememberAccount(IDENTITY, profile, profile, env)
+      answer(this, {
+        profile,
+        state: "saved",
+        password: kind ?? "none",
+        stored_in: storedIn,
+        verified: true,
+        ...checked,
+      })
     })
 
 const statusCommand = () =>
   annotate(new Command("status"), {
     effects: REMOTE_READ,
-    examples: [`${CLI} personal session status`, `${CLI} personal session status --check --json`],
+    examples: [`${CLI} office session status`, `${CLI} office session status --check --json`],
   })
-    .summary("show where this profile's token comes from; never the token")
+    .summary("show where this profile's password comes from; never the password")
     .description(
-      `show where this profile's token comes from: ${IDENTITY.envPrefix}_TOKEN, the keyring or a file, never the token; ` +
-        `--check asks ${SERVICE} whose token it is`,
+      `show which password this profile's source needs and where it comes from: ${IDENTITY.envPrefix}_TOKEN, the ` +
+        "keyring or a file, never the password; --check reads the newest call records to prove it works",
     )
-    .option("--check", `ask ${SERVICE} whether the token still works, and whose it is`)
+    .option("--check", "read the newest call records to prove the settings and the password work")
     .action(async function (this: Command, args: { check?: boolean }) {
-      const { profile, tokens } = contextOf(this)
-      const saved = tokens.read(profile)
-      const status = { profile, state: saved ? "saved" : "missing", token_from: saved?.source ?? null }
-      if (!args.check || !saved) return answer(this, { ...status, verified: false })
-      answer(this, { ...status, verified: true, user: await withService(this, (service) => service.me()) })
+      const { profile, secrets, settings } = contextOf(this)
+      const kind = secretKindOf(sourceOf(settings))
+      const saved = kind ? secrets.read(profile) : undefined
+      const status = {
+        profile,
+        password: kind ?? "none",
+        state: !kind || saved ? "saved" : "missing",
+        password_from: saved?.source ?? null,
+      }
+      if (!args.check || status.state === "missing") return answer(this, { ...status, verified: false })
+      answer(this, { ...status, verified: true, ...(await check(this)) })
     })
 
 const endCommand = () =>
@@ -102,12 +133,14 @@ const endCommand = () =>
       examples: [`${CLI} personal session end`],
     }),
   )
-    .summary("forget this profile's token on this computer")
-    .description(`forget this profile's token on this computer; the token itself stays valid in ${SERVICE}`)
+    .summary("forget this profile's password on this computer; imported calls stay")
+    .description(
+      "forget this profile's password on this computer; the imported calls stay, and the server is not touched",
+    )
     .action(function (this: Command) {
       refuseUnderReadOnly(this, "session end")
-      const { profile, tokens } = contextOf(this)
-      answer(this, { profile, ended: tokens.remove(profile) })
+      const { profile, secrets } = contextOf(this)
+      answer(this, { profile, ended: secrets.remove(profile), calls: "retained" })
     })
 
 const listCommand = () =>
@@ -118,7 +151,7 @@ const listCommand = () =>
     }),
   )
     .summary("list the profiles here and whether each is signed in")
-    .description("list the profiles on this computer and whether each has a token; picks none")
+    .description("list the profiles on this computer and whether each has a password; picks none")
     .action(function (this: Command) {
       const environment = environmentOf(this)
       const env = environment.env ?? process.env
@@ -130,10 +163,11 @@ const listCommand = () =>
         ...(environment.keyring ? { keyring: environment.keyring } : {}),
         warn: outputFor(this).renderer.warn,
       })
-      const items = profilesHere(IDENTITY, configuredProfiles, env).map((profile) => {
-        const saved = tokens.read(profile)
-        return { profile, signed_in: saved !== undefined, token_from: saved?.source ?? null }
-      })
+      const items = profilesHere(IDENTITY, configuredProfiles, env).map((profile) => ({
+        profile,
+        signed_in: readyToRead(profile, env, environment.keyring),
+        password_from: tokens.read(profile)?.source ?? null,
+      }))
       renderAnswer(
         this,
         outputFor(this),
@@ -143,7 +177,7 @@ const listCommand = () =>
 
 export const sessionCommand = (): Command =>
   annotate(new Command("session"), { effects: LOCAL_READ })
-    .description(`keep this profile's ${SERVICE} token in the OS keyring`)
+    .description("check this profile's Asterisk source and keep its password in the OS keyring")
     .addCommand(startCommand())
     .addCommand(statusCommand())
     .addCommand(endCommand())

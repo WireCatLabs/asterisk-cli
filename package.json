@@ -1,7 +1,7 @@
 {
   "name": "@wirecat/asterisk-cli",
-  "version": "0.0.0",
-  "description": "A new WireCat CLI, started from cli-template",
+  "version": "0.1.0",
+  "description": "Asterisk PBX calls (CDR from Master.csv, MySQL or PostgreSQL) and their recordings as meetings in the local WireCat store, transcribed on your computer, for AI agents. Read-only.",
   "license": "Apache-2.0",
   "author": "Viacheslav Ptsarev",
   "repository": {
@@ -26,7 +26,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc --build --force && cli-dev bundle --bin dist/bin/asterisk.js",
+    "build": "tsc --build --force && cli-dev bundle --bin dist/bin/asterisk.js --external pg --external mysql2",
     "typecheck": "tsc --build --force --emitDeclarationOnly && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -58,8 +58,10 @@
   },
   "dependencies": {
     "@wirecat/cli-base": "0.93.0",
-    "@wirecat/cli-core": "0.623.0",
+    "@wirecat/cli-core": "0.647.0",
     "commander": "15.0.0",
+    "mysql2": "3.24.6",
+    "pg": "8.23.1",
     "valibot": "1.5.0"
   },
   "devDependencies": {
@@ -68,8 +70,9 @@
     "@cspell/dict-es-es": "3.0.9",
     "@cspell/dict-ru_ru": "2.3.4",
     "@types/node": "22.20.5",
+    "@types/pg": "8.23.1",
     "@vitest/coverage-v8": "5.0.5",
-    "@wirecat/cli-testing": "0.6.1",
+    "@wirecat/cli-testing": "0.7.0",
     "cspell": "10.4.0",
     "esbuild": "0.28.2",
     "lefthook": "2.2.2",
@@ -81,5 +84,17 @@
   "publishConfig": {
     "access": "public"
   },
-  "mcpName": "dev.wirecat/asterisk-cli"
+  "mcpName": "dev.wirecat/asterisk-cli",
+  "keywords": [
+    "asterisk",
+    "freepbx",
+    "pbx",
+    "cdr",
+    "call-recordings",
+    "transcription",
+    "mcp",
+    "ai-agents",
+    "wirecat",
+    "cli"
+  ]
 }

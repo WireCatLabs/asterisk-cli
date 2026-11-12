@@ -7,7 +7,7 @@ ran it · ⛔ not tested offline, with the reason and where it is checked instea
 Measured from the test run (`coverage/argv.jsonl`), not searched for — see
 [TESTING.md](TESTING.md) for how, and for the states and failures that cut across commands.
 
-**71 ✅ · 20 ⛔ · 0 ❌** — 32 commands, 59 options.
+**115 ✅ · 23 ⛔ · 0 ❌** — 43 commands, 95 options.
 
 | Command | Option | | Note |
 |---|---|---|---|
@@ -19,17 +19,64 @@ Measured from the test run (`coverage/argv.jsonl`), not searched for — see
 | `session status` | `--check` | ✅ |  |
 | `session end` |  | ✅ |  |
 | `session list` |  | ✅ |  |
-| `comments list` |  | ✅ |  |
-| `comments list` | `--limit` | ✅ |  |
-| `comments list` | `--page` | ✅ |  |
-| `comments list` | `--all` | ✅ |  |
-| `comments show` |  | ✅ |  |
-| `comments create` |  | ✅ |  |
-| `comments create` | `--text` | ✅ |  |
-| `comments update` |  | ✅ |  |
-| `comments update` | `--text` | ✅ |  |
+| `meetings list` |  | ✅ |  |
+| `meetings list` | `--json` | ✅ |  |
+| `meetings list` | `--jsonl` | ✅ |  |
+| `meetings list` | `--limit` | ✅ |  |
+| `meetings list` | `--page` | ✅ |  |
+| `meetings show` |  | ✅ |  |
+| `meetings show` | `--json` | ✅ |  |
+| `meetings show` | `--jsonl` | ✅ |  |
+| `meetings transcript` |  | ✅ |  |
+| `meetings transcript` | `--history` | ✅ |  |
+| `meetings transcript` | `--json` | ✅ |  |
+| `meetings transcript` | `--jsonl` | ✅ |  |
+| `meetings summary` |  | ✅ |  |
+| `meetings summary` | `--json` | ✅ |  |
+| `meetings summary` | `--jsonl` | ✅ |  |
+| `meetings export` |  | ✅ |  |
+| `meetings export` | `--format` | ✅ |  |
+| `meetings export` | `--transcript-id` | ✅ |  |
+| `meetings export` | `--output` | ✅ |  |
+| `meetings export` | `--json` | ✅ |  |
+| `meetings export` | `--jsonl` | ✅ |  |
+| `meetings people` |  | ✅ |  |
+| `meetings people` | `--json` | ✅ |  |
+| `meetings people` | `--jsonl` | ✅ |  |
+| `meetings people` | `--limit` | ✅ |  |
+| `meetings people` | `--scan-limit` | ✅ |  |
+| `meetings people` | `--max-read-bytes` | ✅ |  |
+| `meetings people` | `--cursor` | ✅ |  |
+| `meetings sync` |  | ✅ |  |
+| `meetings sync` | `--json` | ✅ |  |
+| `meetings sync` | `--jsonl` | ✅ |  |
+| `meetings sync` | `--since-time` | ✅ |  |
+| `meetings sync` | `--lookback-days` | ✅ |  |
+| `meetings sync` | `--rescan` | ✅ |  |
+| `meetings import` |  | ✅ |  |
+| `meetings import` | `--json` | ✅ |  |
+| `meetings import` | `--jsonl` | ✅ |  |
+| `meetings repair` |  | ✅ |  |
+| `meetings repair` | `--json` | ✅ |  |
+| `meetings repair` | `--jsonl` | ✅ |  |
+| `meetings repair` | `--yes` | ✅ |  |
+| `meetings transcribe` |  | ✅ |  |
+| `meetings transcribe` | `--replace` | ✅ |  |
+| `meetings transcribe` | `--max-meetings` | ✅ |  |
+| `meetings transcribe` | `--model` | ✅ |  |
+| `events list` |  | ✅ |  |
+| `events list` | `--json` | ✅ |  |
+| `events list` | `--jsonl` | ✅ |  |
+| `models list` |  | ✅ |  |
+| `models download` |  | ⛔ | cli-core's shared model catalogue downloads hundreds of MB from the model's pinned address; cli-core tests it |
+| `models download` | `--offline` | ⛔ | cli-core's shared model catalogue downloads hundreds of MB from the model's pinned address; cli-core tests it |
+| `models download` | `--accept-terms` | ⛔ | cli-core's shared model catalogue downloads hundreds of MB from the model's pinned address; cli-core tests it |
 | `doctor` |  | ✅ |  |
 | `doctor` | `--online` | ✅ |  |
+| `doctor reports show` |  | ✅ |  |
+| `doctor reports create` |  | ✅ |  |
+| `doctor reports create` | `--run` | ✅ |  |
+| `doctor reports create` | `--output` | ✅ |  |
 | `skill show` |  | ✅ |  |
 | `skill show` | `--for` | ✅ |  |
 | `skill install` |  | ✅ |  |

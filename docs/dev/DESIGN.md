@@ -1,36 +1,22 @@
 # asterisk — design
 
-Written by `npx @wirecat/cli-template new`. The agent reads it first, asks the further questions the reference CLI
-does not answer, and starts building only after the owner has read it.
-
-## First task
-
-Delete this section once every step is done (WC-DOC-3).
-
-1. If an answer below is missing, ask the owner the [design interview](skills/design-interview/SKILL.md).
-2. Learn how a command reaches a service from the sample (`AGENTS.md`, "The sample"), and the domain, the
-   store and its commands from the reference CLI below. Build the first command on the sample.
-3. Ask the further questions in the interview that the reference CLI does not answer, and write the answers here.
-   Build only after the owner has read this page.
-4. When the first command reaches the service, rewrite `README.md`, `docs/index.md` and the description in
-   `package.json` and `skills/asterisk-cli/SKILL.md` to say what the tool does and who it is for. Rewrite
-   `appMcpCommand`'s `name` and `untrusted` in `src/program.ts` too: name the kinds of outside text the CLI
-   carries (WC-MCP-11). Rewrite the tagline and the sign-in texts of `DESKTOP` in `src/identity.ts`, then run
-   `pnpm generate`: WireCat Desktop shows them before it installs the tool.
+What `asterisk` is for and the decisions that shape it. Started from `npx @wirecat/cli-template new`; the answers below
+are the owner's.
 
 ## Answers
 
 - **Category:** meetings
 - **Content languages:** ru, en
-- **Sign-in:** an API token or key
-- **The API:** official API documentation only
+- **Sign-in:** a database or SFTP password where the source needs one; none for a local Master.csv
+- **The API:** official documentation only (the Asterisk CDR specification and the `cdr_csv` source)
 - **How people filter:** by time, by person, by status or label
 - **Never in the store, a log or the output:** tokens and passwords
 - **Untrusted input:** files and attachments, names and titles set by others, what other attendees said or wrote
 
 ## Reference CLI
 
-Learn from [zoom-cli](https://github.com/WireCatLabs/zoom-cli).
+Learn from [zoom-cli](https://github.com/WireCatLabs/zoom-cli), and from beeline-cli, the other PBX: this CLI keeps
+its shape (calls as meetings, local transcription, the same commands).
 
 ## Content languages
 
@@ -38,4 +24,48 @@ Languages: ru, en.
 
 ## Further answers
 
+Owner, 2026-11-12.
+
+- **Purpose:** make a business's Asterisk calls available to AI agents beside its messages, mail, meetings and CRM: a
+  source connector, not a PBX tool. The first user connects Asterisk, WhatsApp, MAX, mail and a CRM.
+- **Calls go into the existing tables.** A call is a meeting in cli-core's shared store, as in beeline and zoom: the
+  same `meetings` commands, transcripts and search. The brief asked for Memo's Generic Import (the records envelope
+  in cli-core); the owner chose the meetings tables, which already hold recordings, transcripts and people, and
+  which every WireCat tool reads. No second ingestion path is built.
+- **Sources:** Master.csv, MySQL or MariaDB, PostgreSQL, and SFTP for remote files. The SFTP client belongs in
+  cli-core, with retries, timeouts and tracing, for every CLI. It is not in this release: until it is, a remote PBX is
+  reached by a read-only mount or an SSH tunnel.
+- **Names:** the command is `asterisk`, the package `@wirecat/asterisk-cli`; `wcat-asterisk` is the same program.
+- **Release:** a repository, merged pull requests and a release to npm; WireCat Desktop gets the tool next.
+
+## Decisions
+
+- **One CDR row is one meeting.** Its external id is `uniqueid#sequence`, or `uniqueid#<digest of the row>` without a
+  sequence, or `row-<digest>` without a uniqueid. Asterisk writes several rows with one uniqueid for a transfer (the
+  CDR specification's examples show it), so the uniqueid alone would merge the legs. `linkedid` stays in the
+  metadata; joining legs into one conversation is out of scope.
+- **No series.** A meeting series in cli-core is a recurring meeting; the legs of a call are not that.
+- **Direction** comes from the extension pattern applied to the channel's peer, then to the number, and from the
+  `from-trunk`, `from-pstn`, `from-did` contexts. Nothing else is guessed.
+- **People:** the extension is `extension:<n>` with the role `manager`; the outside number is `phone:<E.164>` with the
+  role `client` when `phone_region` makes it international, else `number:<as written>`, which matches nothing in other
+  sources. The roles are beeline's.
+- **The cursor** is cli-core's: when the last sync began, read again six hours earlier, since a CDR row is written when
+  the call ends. Master.csv is read whole and filtered; a database is asked from the cursor, in its wall time, in pages
+  of 5,000 ordered by time and uniqueid.
+- **Times** without a zone are read in `cdr_timezone` with cli-core's `localMoment` (WC-TIME-3). The SQL drivers
+  return the wall time as text, never a `Date` made in this computer's zone.
+- **Recordings** are attachments that keep the file's path; nothing is copied. A file changed in the last two minutes
+  is skipped. The transcript receipt keys a recording by its content hash, so an unchanged file is never transcribed
+  twice.
+- **Mono is fine.** MixMonitor writes one mixed track by default; it is one transcript with no speakers. Two separate
+  channels are named `Channel 1` and `Channel 2`, since which side is which depends on the dialplan.
+- **One password per profile:** the database's, or the SFTP user's when no key file is set.
+- **The SQL drivers** (`mysql2`, `pg`) live here, not in cli-core: no other CLI reads a SQL server, and they would make
+  every CLI's install heavier. They stay outside the bundle (`--external`) and load only for a database source.
+- **The transcription loop** is beeline's, adapted. A third copy should move into cli-core instead.
+
 ## Open questions for the owner
+
+- Whether to join the legs of one call (`linkedid`) into one conversation for agents.
+- Whether `files_from sftp` should also read the CDR database through an SSH tunnel of its own.

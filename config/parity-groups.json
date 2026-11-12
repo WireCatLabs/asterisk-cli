@@ -1,0 +1,57 @@
+[
+  {
+    "name": "shared-roots",
+    "members": ["tg", "max", "memo", "drive", "zm", "wa", "b24", "beeline", "asterisk"],
+    "covers": ["commands", "doctor", "skill", "mcp", "upgrade"],
+    "differences": [
+      {
+        "rule": "same-path-contract",
+        "target": "mcp serve --profiles",
+        "absent": "memo",
+        "reason": "memo has no profiles: it reads other CLIs stores and selects their accounts with --source and --account (https://github.com/WireCatLabs/cli-base/issues/390)"
+      },
+      {
+        "rule": "same-path-contract",
+        "target": "mcp revoke --profiles",
+        "absent": "memo",
+        "reason": "memo has no profiles: it reads other CLIs stores and selects their accounts with --source and --account (https://github.com/WireCatLabs/cli-base/issues/390)"
+      },
+      {
+        "rule": "same-path-contract",
+        "target": "mcp server start --profiles",
+        "absent": "memo",
+        "reason": "memo has no profiles: it reads other CLIs stores and selects their accounts with --source and --account (https://github.com/WireCatLabs/cli-base/issues/390)"
+      },
+      {
+        "rule": "same-path-contract",
+        "target": "mcp server status --profiles",
+        "absent": "memo",
+        "reason": "memo has no profiles: it reads other CLIs stores and selects their accounts with --source and --account (https://github.com/WireCatLabs/cli-base/issues/390)"
+      },
+      {
+        "rule": "same-path-contract",
+        "target": "mcp server stop --profiles",
+        "absent": "memo",
+        "reason": "memo has no profiles: it reads other CLIs stores and selects their accounts with --source and --account (https://github.com/WireCatLabs/cli-base/issues/390)"
+      },
+      {
+        "rule": "same-path-contract",
+        "target": "doctor --deep",
+        "only": "memo",
+        "reason": "memo doctor --deep also checks its own store (cli-memo #672); cli-core leaves --deep to each CLI"
+      },
+      {
+        "rule": "same-path-contract",
+        "target": "asterisk+max+tg+wa doctor reports create: summary",
+        "expected": "asterisk: \"the report file written: its path, the run it is about, and where to send it\", max: \"write a problem report to a file, and print how to send it\", tg: \"write a problem report to a file, and say where to send it\", wa: \"write a problem report to a file, and say where to send it\"",
+        "reason": "cli-core 0.647 reworded doctor reports; the published tg, max and wa are on older cli-core and agree once they bump it (review by 2026-12-13)"
+      },
+      {
+        "rule": "same-path-contract",
+        "target": "asterisk+max+tg+wa doctor reports show: summary",
+        "expected": "asterisk: \"what a report holds and never holds, and where to send it; writes nothing\", max: \"what a problem report holds and where it goes; writes nothing\", tg: \"what a problem report holds; writes nothing\", wa: \"what a problem report holds; writes nothing\"",
+        "reason": "cli-core 0.647 reworded doctor reports; the published tg, max and wa are on older cli-core and agree once they bump it (review by 2026-12-13)"
+      }
+    ]
+  }
+]
