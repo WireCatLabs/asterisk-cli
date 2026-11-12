@@ -50,4 +50,10 @@ export const UNTESTED: { command: string; option?: string; reason: string }[] = 
     ...(option ? { option } : {}),
     reason: `starts the installed CLI as a child process, as the agent would; ${SHARED_MCP}`,
   })),
+  ...[undefined, "--offline", "--accept-terms"].map((option) => ({
+    command: "models download",
+    ...(option ? { option } : {}),
+    reason:
+      "cli-core's shared model catalogue downloads hundreds of MB from the model's pinned address; cli-core tests it",
+  })),
 ]

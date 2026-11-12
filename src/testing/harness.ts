@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import { Readable } from "node:stream"
 import { type KeyringStore, memoryKeyring } from "@wirecat/cli-base"
 import type { RunOptions } from "@wirecat/cli-core/cli"
+import type { SpeechEnvironment } from "../commands/transcribe.js"
 import type { AsteriskEnvironment } from "../context.js"
 import { run } from "../program.js"
 
@@ -23,22 +24,25 @@ export const runCli = async (
     stdin,
     env,
     sql,
+    speech,
     answer,
   }: {
     keyring?: KeyringStore
     stdin?: string
     env?: NodeJS.ProcessEnv
     sql?: AsteriskEnvironment["sql"]
+    speech?: SpeechEnvironment["speech"]
     answer?: (question: string) => string | null
   } = {},
 ): Promise<Ran> => {
   const out: string[] = []
   const err: string[] = []
-  const options: RunOptions & AsteriskEnvironment = {
+  const options: RunOptions & AsteriskEnvironment & SpeechEnvironment = {
     streams: { data: (text: string) => out.push(text), diagnostic: (text: string) => err.push(text) },
     tty: false,
     keyring,
     ...(sql ? { sql } : {}),
+    ...(speech ? { speech } : {}),
     ...(env ? { env: { ...process.env, ...env } } : {}),
     ...(answer ? { answer } : {}),
     ...(stdin === undefined ? {} : { stdin: Object.assign(Readable.from([stdin]), { isTTY: false }) }),

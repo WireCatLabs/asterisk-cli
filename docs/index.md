@@ -1,8 +1,11 @@
 # asterisk
 
-`asterisk` is a WireCat command-line tool for the terminal, for scripts and for AI agents. Its one service is a sample,
-Example Comments, made up to show how a command reaches a service; its address never resolves.
+`asterisk` brings the phone calls of an Asterisk PBX into WireCat, for the terminal, for scripts and for AI agents. It
+reads the call records (CDR) from `Master.csv` or the CDR database, links each call to its recording, and keeps them
+in the local WireCat store as meetings. `meetings transcribe` turns the recordings into text on this computer.
 
-It has the commands every WireCat CLI shares: `doctor`, `commands`, `config`, `skill`, `mcp`, `runs` and `upgrade`,
-and the sample's `session` and `comments`.
-Start with [installation](installation.md), then [usage](usage.md).
+It reads only: it never changes the PBX, its settings or a recording. It has the commands every WireCat CLI shares:
+`doctor`, `commands`, `config`, `skill`, `mcp`, `runs` and `upgrade`, with `session`, `meetings`, `events` and
+`models`.
+
+Start with [installation](installation.md), then [connect your Asterisk](asterisk.md) and [use it](usage.md).

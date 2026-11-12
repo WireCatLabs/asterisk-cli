@@ -3,10 +3,30 @@
 What WireCat CLIs share — the keyring, permissions, MCP and what never reaches a log — is on the
 [shared security page](https://wirecat.dev/en/docs/security). This page keeps only what is particular to `asterisk`.
 
-`asterisk` keeps its settings in `config.json` and its state in the folders `asterisk doctor` shows. Its one service is
-the sample, Example Comments, whose address never resolves. `session start` keeps the service's token in the OS
-keyring, or in a private file where no keyring works; the token goes only into the request's Authorization header,
-never into an address, an answer, a run record or the send journal.
+`asterisk` keeps its settings in `config.json` and its state in the folders `asterisk doctor` shows. It reads the PBX
+and never writes to it: Master.csv and the recordings are opened for reading only, and a database session is opened
+read-only and sends a `SELECT` of the CDR table, with values as parameters. Give it a user that may do no more, as
+[connect your Asterisk](asterisk.md#a-cdr-database) shows, and keep the database and AMI off the internet.
+
+`session start` keeps a database password in the OS keyring, or in a private file where no keyring works. The password
+is read hidden or from stdin, never from the command line, and is checked before it is kept. It goes only to the
+database driver, never into an answer, an error, a run record or a log. A profile on a local Master.csv keeps none.
+
+## What the store holds
+
+The WireCat store keeps the callers' numbers and caller ID names, the extensions, the call times, the paths of the
+recordings and, once transcribed, what was said. It does not keep a copy of a recording. Treat the store like the
+calls themselves: it is on this computer, readable by your user only. Transcripts, names and numbers reach an agent
+marked as untrusted data, never as instructions.
+
+Speech is recognized on this computer. No recording or transcript goes to an outside service.
+
+## Recordings and consent
+
+Recording a phone call, keeping it and turning it into text may need the consent of the people on the call, and the
+law of your country decides how (in Russia, for example, 152-FZ on personal data). Telling callers that the call is
+recorded, and keeping recordings only as long as allowed, are the PBX owner's duties. `asterisk` reads only the
+recordings the PBX already made, and deletes none of them.
 
 `asterisk personal mcp serve --http` listens on `127.0.0.1` only, for browser apps that reach it through your own
 tunnel. Each app logs in with a one-time code, and the server keeps a hash of each login it gives, in the state

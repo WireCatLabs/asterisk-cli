@@ -1,15 +1,24 @@
 # When something goes wrong
 
-Start with the symptom, run the check, then retry the command. Keep the error code and the profile name for a
-support request.
+Start with the symptom, run the check, then retry the command. Keep the error code, the reason and the profile name
+for a support request.
 
 | Symptom | What to do |
 | --- | --- |
 | Not sure what is set up | Run `asterisk doctor`. It reads no keyring and uses no network. |
 | `asterisk` is not found | Open a new terminal, and check that npm's global folder is on `PATH`. |
-| "name a profile" | Put the profile first, as in `asterisk personal config show`, or set `ASTERISK_PROFILE`. |
-| The settings file does not read | `doctor` lists every problem in the file under `config.issues`. Run the `config unset` each one gives, or fix the file by hand. |
-| `doctor` lists `files.problems` | Other users of the computer can read `config.json` or enter its folder. Run each `chmod` that `doctor` prints after "to make it private:". `doctor` never changes a file mode itself. |
-| A write is refused | The profile's permissions or `ASTERISK_READ_ONLY` stop it; see [settings](configuration.md#permissions). |
+| `asterisk` starts Asterisk itself | You are on the PBX. Type `wcat-asterisk` instead. |
+| "name a profile" | Put the profile first, as in `asterisk office meetings list`, or set `ASTERISK_PROFILE`. |
+| `source.not-configured` | The message names the setting and the `config set` that fills it. |
+| `cdr.unknown-columns` | Master.csv has a column count `cdr_csv` never writes. Name the columns with `cdr_csv_columns`. |
+| Times are off by hours | Set `cdr_timezone` to the PBX's zone, or to `UTC` when `cdr.conf` has `usegmtime=yes`. Then `meetings sync --since-time` again: the records are updated, not doubled. |
+| "N call records could not be read" | Those rows have no start time; the rest were imported. |
+| `db.refused` | The database refused the user or the password. Run `session start` again. |
+| `db.no-table`, `db.no-select` | Set `db_table`, or grant the user `SELECT` on the table. |
+| `network_error` from the database | The server is not reachable from here. Use an SSH tunnel, as [connect your Asterisk](asterisk.md#a-cdr-database) shows. |
+| A call has no recording | Check `recordings_path`, then `recordings_pattern`. A file changed in the last two minutes is left for the next sync. |
+| `model.not-downloaded` | Run `asterisk models download gigaam-v3`, or the model the message names. |
+| A WAV or GSM call fails to transcribe | Install `ffmpeg`. |
+| The settings file does not read | `doctor` lists every problem in the file under `config.issues`. Run the `config unset` each one gives. |
 
-Never paste a token, a password or private content into a support request.
+Never paste a password, a recording or a transcript into a support request.

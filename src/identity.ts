@@ -25,6 +25,7 @@ export const DESKTOP: ManifestIdentity = {
   hosts: [],
   userHosts: "the Asterisk CDR database or SFTP server you set up",
   tagline: "Asterisk calls and recordings, searchable",
+  syncs: "call records and their recordings",
   signIn: {
     gives: "Lets your agent find your company's phone calls and read what was said in them.",
     asks: "The path of Master.csv, or the CDR database's address and a read-only user's password.",

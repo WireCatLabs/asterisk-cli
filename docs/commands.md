@@ -55,11 +55,11 @@ asterisk commands info [path]
 
 ## `asterisk session`
 
-keep this profile's Example Comments token in the OS keyring
+check this profile's Asterisk source and keep its password in the OS keyring
 
 ### `asterisk session start`
 
-sign this profile in: the Example Comments API token is asked hidden or read from stdin, never taken as an argument, checked against the service, and only then kept in the keyring, or in a private file
+check that this profile reaches its call records, set with config set: a database password, or an SFTP password when no key file is set, is asked hidden or read from stdin, never taken as an argument, checked, and only then kept in the keyring, or in a private file; Master.csv on this computer needs none
 
 **Changes something on this computer only.**
 
@@ -69,15 +69,15 @@ asterisk session start [options]
 
 | Option | What it does |
 |---|---|
-| `--credential-storage <storage>` | where the token is kept: keyring, which falls back to a private file by itself, or file. Default: `keyring`. |
+| `--credential-storage <storage>` | where the password is kept: keyring, which falls back to a private file by itself, or file. Default: `keyring`. |
 
-**Returns:** sign in to Example Comments with an API token
+**Returns:** check the profile's Asterisk source and keep its password
 
-**Example:** `asterisk personal session start`, `asterisk personal session start --credential-storage file`
+**Example:** `asterisk office session start`, `asterisk office session start --credential-storage file`
 
 ### `asterisk session status`
 
-show where this profile's token comes from: ASTERISK_TOKEN, the keyring or a file, never the token; --check asks Example Comments whose token it is
+show which password this profile's source needs and where it comes from: ASTERISK_TOKEN, the keyring or a file, never the password; --check reads the newest call records to prove it works
 
 ```sh
 asterisk session status [options]
@@ -85,15 +85,15 @@ asterisk session status [options]
 
 | Option | What it does |
 |---|---|
-| `--check` | ask Example Comments whether the token still works, and whose it is. |
+| `--check` | read the newest call records to prove the settings and the password work. |
 
-**Returns:** show where this profile's token comes from; never the token
+**Returns:** show where this profile's password comes from; never the password
 
-**Example:** `asterisk personal session status`, `asterisk personal session status --check --json`
+**Example:** `asterisk office session status`, `asterisk office session status --check --json`
 
 ### `asterisk session end`
 
-forget this profile's token on this computer; the token itself stays valid in Example Comments
+forget this profile's password on this computer; the imported calls stay, and the server is not touched
 
 **Changes something on this computer only.**
 
@@ -101,13 +101,13 @@ forget this profile's token on this computer; the token itself stays valid in Ex
 asterisk session end
 ```
 
-**Returns:** forget this profile's token on this computer
+**Returns:** forget this profile's password on this computer; imported calls stay
 
 **Example:** `asterisk personal session end`
 
 ### `asterisk session list`
 
-list the profiles on this computer and whether each has a token; picks none
+list the profiles on this computer and whether each has a password; picks none
 
 ```sh
 asterisk session list
@@ -117,16 +117,16 @@ asterisk session list
 
 **Example:** `asterisk session list`, `asterisk session list --json`
 
-## `asterisk comments`
+## `asterisk meetings`
 
-read and write comments in Example Comments, the sample service
+stored meetings and their records
 
-### `asterisk comments list`
+### `asterisk meetings list`
 
-list the comments in Example Comments, newest first
+stored meetings, newest first
 
 ```sh
-asterisk comments list [query] [options]
+asterisk meetings list [query] [options]
 ```
 
 | Argument | | What it is |
@@ -135,69 +135,294 @@ asterisk comments list [query] [options]
 
 | Option | What it does |
 |---|---|
-| `--limit <n>` | how many to show. |
-| `--page <n>` | which page, starting at 1. |
-| `--all` | every row, no paging. |
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
+| `--limit <n>` | meetings per page. Default: `100`. |
+| `--page <n>` | page number. Default: `1`. |
 
-**Returns:** comment — id, text, author, created_at; every field: asterisk commands info comments list
+**Returns:** meeting — ref, id, provider, account, title, url, started_at, ended_at, and 8 more; every field: asterisk commands info meetings list
 
-**Example:** `asterisk personal comments list`, `asterisk personal comments list author:u2 --json=id,text`
+**Next usually:** `asterisk meetings show <meeting>`, `asterisk meetings transcript <meeting>`, `asterisk meetings summary <meeting>`
 
-### `asterisk comments show`
+**Example:** `asterisk office meetings list --limit 20 --json`
 
-show one comment in Example Comments
+### `asterisk meetings show`
+
+show a stored meeting
 
 ```sh
-asterisk comments show <id>
+asterisk meetings show <meeting> [options]
 ```
 
 | Argument | | What it is |
 |---|---|---|
-| `id` | required | the comment's id, as list prints it. |
-
-**Returns:** comment — id, text, author, created_at; every field: asterisk commands info comments show
-
-**Example:** `asterisk personal comments show c1`, `asterisk personal comments show c1 --json`
-
-### `asterisk comments create`
-
-post a comment in Example Comments
-
-**Changes something in the service.**
-
-```sh
-asterisk comments create [options]
-```
+| `meeting` | required | stored meeting id. |
 
 | Option | What it does |
 |---|---|
-| `--text <text>` | the comment's text. |
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
 
-**Returns:** post a comment in Example Comments
+**Returns:** meeting details — ref, id, provider, account, title, url, started_at, ended_at, and 16 more; every field: asterisk commands info meetings show
 
-**Example:** `asterisk personal comments create --text "Looks good to me"`, `asterisk personal comments create --text "Looks good to me" --dry-run`
+**Next usually:** `asterisk meetings transcript <meeting>`, `asterisk meetings summary <meeting>`, `asterisk meetings export <meeting>`
 
-### `asterisk comments update`
+**Example:** `asterisk office meetings show 1 --json`
 
-change the text of your comment in Example Comments
+### `asterisk meetings transcript`
 
-**Changes something in the service.**
+show current meeting transcripts
 
 ```sh
-asterisk comments update <id> [options]
+asterisk meetings transcript <meeting> [options]
 ```
 
 | Argument | | What it is |
 |---|---|---|
-| `id` | required | the comment's id, as list prints it. |
+| `meeting` | required | stored meeting id. |
 
 | Option | What it does |
 |---|---|
-| `--text <text>` | the new text. |
+| `--history` | include superseded transcript versions. |
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
 
-**Returns:** change the text of your comment in Example Comments
+**Returns:** meeting transcript — ref, meeting, source, language, superseded_at, created_at, lines; every field: asterisk commands info meetings transcript
 
-**Example:** `asterisk personal comments update c1 --text "Looks good now"`
+**Example:** `asterisk office meetings transcript 1 --json`
+
+### `asterisk meetings summary`
+
+show stored meeting summaries
+
+```sh
+asterisk meetings summary <meeting> [options]
+```
+
+| Argument | | What it is |
+|---|---|---|
+| `meeting` | required | stored meeting id. |
+
+| Option | What it does |
+|---|---|
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
+
+**Returns:** meeting summary — id, meeting, source, title, overview, sections, next_steps, content, and 3 more; every field: asterisk commands info meetings summary
+
+**Next usually:** `asterisk meetings show <meeting>`, `asterisk meetings transcript <meeting>`, `asterisk meetings export <meeting>`
+
+**Example:** `asterisk office meetings summary 1 --json`
+
+### `asterisk meetings export`
+
+export a meeting as Markdown or one transcript as WebVTT
+
+**Changes something on this computer only.**
+
+```sh
+asterisk meetings export <meeting> [options]
+```
+
+| Argument | | What it is |
+|---|---|---|
+| `meeting` | required | stored meeting id. |
+
+| Option | What it does |
+|---|---|
+| `--format <format>` | export format. One of: `markdown`, `vtt`. Default: `markdown`. |
+| `--transcript-id <id>` | export a specific transcript version. |
+| `--output <file>` | write content to a new file through the host's writer. |
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
+
+**Returns:** meeting export — meeting_id, format, filename, content, output; every field: asterisk commands info meetings export
+
+**Example:** `asterisk office meetings export 1 --format markdown --json`
+
+### `asterisk meetings people`
+
+find meeting participants by name or email
+
+```sh
+asterisk meetings people <query> [options]
+```
+
+| Argument | | What it is |
+|---|---|---|
+| `query` | required | a name or an email address. |
+
+| Option | What it does |
+|---|---|
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
+| `--limit <n>` | most matching observations per page, 1–1000 (default 50). |
+| `--scan-limit <n>` | most participant observations to inspect, 1–10000 (default 1000). |
+| `--max-read-bytes <bytes>` | most stored name and email bytes to read (default 1048576). |
+| `--cursor <cursor>` | continue with the same name query and selected account. |
+
+**Returns:** meeting participants — schema_version, kind, account_id, query, items, ambiguity, coverage, page; every field: asterisk commands info meetings people
+
+**Example:** `asterisk office meetings people "Test Manager" --json`
+
+### `asterisk meetings sync`
+
+bring the stored meetings up to date from the connected account, oldest first; a run that stops before its deadline keeps what it saved and the next one goes on from there
+
+**Changes something on this computer only.**
+
+```sh
+asterisk meetings sync [options]
+```
+
+| Option | What it does |
+|---|---|
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
+| `--since-time <time>` | fetch meetings starting at or after this ISO 8601 date or time. |
+| `--lookback-days <days>` | revisit recent occurrences for late transcripts (0–31). |
+| `--rescan` | read the last 30 days again, not only what came after the last sync. |
+
+**Returns:** meeting ingestion — meetings, participants, transcript_rows, summaries, warnings, timezone; every field: asterisk commands info meetings sync
+
+**Example:** `asterisk office meetings sync --since-time 2026-08-01T00:00:00Z --json`
+
+### `asterisk meetings import`
+
+import downloaded meeting transcripts
+
+**Changes something on this computer only.**
+
+```sh
+asterisk meetings import <folder> [options]
+```
+
+| Argument | | What it is |
+|---|---|---|
+| `folder` | required | folder of transcripts downloaded from the provider. |
+
+| Option | What it does |
+|---|---|
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
+
+**Returns:** meeting ingestion — meetings, participants, transcript_rows, summaries, warnings, timezone; every field: asterisk commands info meetings import
+
+**Example:** `asterisk office meetings import ./transcripts --json`
+
+### `asterisk meetings repair`
+
+preview filling in what older builds left out of stored transcripts (their language); --yes stores it
+
+**Changes something on this computer only.**
+
+```sh
+asterisk meetings repair [options]
+```
+
+| Option | What it does |
+|---|---|
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
+| `--yes` | store the detected languages; otherwise only preview. |
+
+**Returns:** meeting repair — account_id, applied, transcripts, languages; every field: asterisk commands info meetings repair
+
+**Example:** `asterisk office meetings repair --json`
+
+### `asterisk meetings transcribe`
+
+read each call's recording, never changing it, and recognize the speech with a local speech model
+
+**Changes something on this computer only.**
+
+```sh
+asterisk meetings transcribe [query] [options]
+```
+
+| Argument | | What it is |
+|---|---|---|
+| `query` | optional | field:value terms that pick the calls (default duration_ms>=5000) — the fields are below. |
+
+| Option | What it does |
+|---|---|
+| `--replace` | transcribe calls that already have a transcript too, replacing it. |
+| `--max-meetings <n>` | at most this many calls transcribed, newest first. Default: `20`. |
+| `--model <model>` | local speech model. Default: `gigaam-v3`. |
+
+**Returns:** call transcription report — transcribed, audio_seconds, failed, without_recording, remaining, stopped; every field: asterisk commands info meetings transcribe
+
+**Example:** `asterisk office meetings transcribe --max-meetings 20 --json`, `asterisk office meetings transcribe duration_ms>=60000 --json`, `asterisk office meetings transcribe id:12 --replace --json`
+
+## `asterisk events`
+
+the owner's stored events
+
+### `asterisk events list`
+
+list stored events
+
+```sh
+asterisk events list [query] [options]
+```
+
+| Argument | | What it is |
+|---|---|---|
+| `query` | optional | event id, origin or time fields that narrow the list. |
+
+| Option | What it does |
+|---|---|
+| `--json` | one JSON value. |
+| `--jsonl` | one JSON object per item. |
+
+**Returns:** event — id, event_series_id, title, description, location, starts_at, ends_at, timezone, and 13 more; every field: asterisk commands info events list
+
+**Example:** `asterisk office events list --json`
+
+## `asterisk models`
+
+models that run on this machine
+
+### `asterisk models list`
+
+speech and embedding models, their download status and the default of each kind
+
+```sh
+asterisk models list [query]
+```
+
+| Argument | | What it is |
+|---|---|---|
+| `query` | optional | field:value terms that narrow the list — the fields are below. |
+
+**Returns:** model — id, kind, title, languages, size_bytes, downloaded, default, path, and 6 more; every field: asterisk commands info models list
+
+**Next usually:** `asterisk models download <model>`
+
+**Example:** `asterisk models list`, `asterisk models list kind:audio`
+
+### `asterisk models download`
+
+download and verify one speech or embedding model
+
+**Changes something on this computer only.**
+
+```sh
+asterisk models download <model> [options]
+```
+
+| Argument | | What it is |
+|---|---|---|
+| `model` | required | a model id from models list. |
+
+| Option | What it does |
+|---|---|
+| `--offline` | refuse a download that needs the network. |
+| `--accept-terms` | no longer needed; kept so older scripts still run. |
+
+**Returns:** model — id, kind, title, languages, size_bytes, downloaded, default, path, and 6 more; every field: asterisk commands info models download
+
+**Example:** `asterisk models download parakeet-v3`
 
 ## `asterisk doctor`
 
@@ -214,6 +439,41 @@ asterisk doctor [options]
 **Returns:** the state this installation is in, without connecting unless --online
 
 **Example:** `asterisk doctor`, `asterisk doctor --json`
+
+### `asterisk doctor reports`
+
+problem reports
+
+#### `asterisk doctor reports show`
+
+what a problem report holds; writes nothing
+
+```sh
+asterisk doctor reports show
+```
+
+**Returns:** what a report holds and never holds, and where to send it; writes nothing
+
+**Example:** `asterisk doctor reports show`
+
+#### `asterisk doctor reports create`
+
+write a problem report to a file, and say where to send it
+
+**Changes something on this computer only.**
+
+```sh
+asterisk doctor reports create [options]
+```
+
+| Option | What it does |
+|---|---|
+| `--run <id>` | the run the report is about; the newest failed one if not given. |
+| `--output <file>` | where to write it; a new file in this directory if not given. |
+
+**Returns:** the report file written: its path, the run it is about, and where to send it
+
+**Example:** `asterisk doctor reports create --output ./problem-report.json`
 
 ## `asterisk skill`
 
@@ -281,7 +541,7 @@ asterisk mcp serve [options]
 
 | Option | What it does |
 |---|---|
-| `--permission <key=level>` | make a permission stricter for this server only, like comments.create=deny; it never loosens the profile; repeat for more keys. |
+| `--permission <key=level>` | make a permission stricter for this server only, like meetings.sync=deny; it never loosens the profile; repeat for more keys. |
 | `--profiles <names\|all>` | serve several profiles from one server instead of one: names, comma-separated, or all for every profile. |
 | `--http` | serve over HTTP on 127.0.0.1 for ChatGPT and Claude in the browser, behind your tunnel; the profile's permissions decide. |
 | `--port <port>` | the local port for --http (default 8765). |
@@ -378,7 +638,7 @@ asterisk mcp config [options]
 
 | Option | What it does |
 |---|---|
-| `--permission <key=level>` | make a permission stricter for this server only, like comments.create=deny; it never loosens the profile; repeat for more keys. |
+| `--permission <key=level>` | make a permission stricter for this server only, like meetings.sync=deny; it never loosens the profile; repeat for more keys. |
 | `--profiles <names\|all>` | serve several profiles from one server instead of one: names, comma-separated, or all for every profile. |
 
 **Returns:** print the local MCP configuration of this profile, or of those --profiles names
@@ -402,7 +662,7 @@ asterisk mcp add <client> [options]
 | Option | What it does |
 |---|---|
 | `--allow-writes` | acknowledge that this profile offers writing tools. |
-| `--permission <key=level>` | make a permission stricter for this server only, like comments.create=deny; it never loosens the profile; repeat for more keys. |
+| `--permission <key=level>` | make a permission stricter for this server only, like meetings.sync=deny; it never loosens the profile; repeat for more keys. |
 
 **Returns:** add this profile's local MCP server to Codex or Claude Code
 
@@ -418,7 +678,7 @@ asterisk mcp check [options]
 
 | Option | What it does |
 |---|---|
-| `--permission <key=level>` | make a permission stricter for this server only, like comments.create=deny; it never loosens the profile; repeat for more keys. |
+| `--permission <key=level>` | make a permission stricter for this server only, like meetings.sync=deny; it never loosens the profile; repeat for more keys. |
 
 **Returns:** check this profile's local MCP handshake and tool list
 
@@ -470,7 +730,7 @@ asterisk config set <setting> <value> [options]
 
 | Argument | | What it is |
 |---|---|---|
-| `setting` | required | one of: limit, timeout_ms, color, record, record_input, keep_runs_for_days, keep_successful_runs_for_days, keep_store_runs_for_days, runs_size_limit_mb, permissions, requests_per_minute, search_reranker, embedding_provider, embedding_model, embedding_base_url, embedding_dims, models, update_check, skill_hint, search_stemmers.cyrillic, search_stemmers.latin, owner_languages, crm.<provider>:<account>.links, crm.<provider>:<account>.company-types, crm.<provider>:<account>.scope, crm.<provider>:<account>.unassigned, crm.<provider>:<account>.self. |
+| `setting` | required | one of: limit, timeout_ms, color, record, record_input, keep_runs_for_days, keep_successful_runs_for_days, keep_store_runs_for_days, runs_size_limit_mb, permissions, requests_per_minute, search_reranker, embedding_provider, embedding_model, embedding_base_url, embedding_dims, models, cdr_source, cdr_csv_path, cdr_csv_columns, db_host, db_port, db_name, db_user, db_table, db_tls, recordings_path, recordings_pattern, files_from, sftp_host, sftp_port, sftp_user, sftp_key_path, sftp_host_key, cdr_timezone, phone_region, extension_pattern, update_check, skill_hint, search_stemmers.cyrillic, search_stemmers.latin, owner_languages, crm.<provider>:<account>.links, crm.<provider>:<account>.company-types, crm.<provider>:<account>.scope, crm.<provider>:<account>.unassigned, crm.<provider>:<account>.self, crm.<provider>:<account>.stage-tasks, crm.<provider>:<account>.activities. |
 | `value` | required | a number, true or false; for a group tg:work,max:Alice,email:me@x. |
 
 | Option | What it does |
@@ -493,7 +753,7 @@ asterisk config unset <setting> [options]
 
 | Argument | | What it is |
 |---|---|---|
-| `setting` | required | one of: limit, timeout_ms, color, record, record_input, keep_runs_for_days, keep_successful_runs_for_days, keep_store_runs_for_days, runs_size_limit_mb, permissions, requests_per_minute, search_reranker, embedding_provider, embedding_model, embedding_base_url, embedding_dims, models, update_check, skill_hint, search_stemmers.cyrillic, search_stemmers.latin, owner_languages, crm.<provider>:<account>.links, crm.<provider>:<account>.company-types, crm.<provider>:<account>.scope, crm.<provider>:<account>.unassigned, crm.<provider>:<account>.self. |
+| `setting` | required | one of: limit, timeout_ms, color, record, record_input, keep_runs_for_days, keep_successful_runs_for_days, keep_store_runs_for_days, runs_size_limit_mb, permissions, requests_per_minute, search_reranker, embedding_provider, embedding_model, embedding_base_url, embedding_dims, models, cdr_source, cdr_csv_path, cdr_csv_columns, db_host, db_port, db_name, db_user, db_table, db_tls, recordings_path, recordings_pattern, files_from, sftp_host, sftp_port, sftp_user, sftp_key_path, sftp_host_key, cdr_timezone, phone_region, extension_pattern, update_check, skill_hint, search_stemmers.cyrillic, search_stemmers.latin, owner_languages, crm.<provider>:<account>.links, crm.<provider>:<account>.company-types, crm.<provider>:<account>.scope, crm.<provider>:<account>.unassigned, crm.<provider>:<account>.self, crm.<provider>:<account>.stage-tasks, crm.<provider>:<account>.activities. |
 
 | Option | What it does |
 |---|---|
