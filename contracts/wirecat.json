@@ -2,7 +2,7 @@
   "wcat_manifest": 2,
   "name": "pbx",
   "description": "Asterisk PBX calls and recordings as meetings: import the CDR, transcribe on this computer, search",
-  "docs_url": "https://github.com/WireCatLabs/asterisk-cli#readme",
+  "docs_url": "https://wirecat.dev/en/docs/pbx",
   "package": "@wirecat/asterisk-cli",
   "bin": "wcat-pbx",
   "commands": [
