@@ -10,8 +10,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-const COMMAND = "asterisk"
-const PREFIX = "ASTERISK"
+const COMMAND = "pbx"
+const PREFIX = "PBX"
 
 const runtime = "Bun" in globalThis ? "bun" : "node"
 const failures: string[] = []

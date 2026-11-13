@@ -78,7 +78,7 @@ it("session start shows the server's key to pin, and asks no password until it i
     stdin: `${PASSWORD}\n`,
   })
   expect(started.json()).toMatchObject({ error: { code: "configuration_error", reason: "sftp.host-key-missing" } })
-  expect(started.err).toContain(`asterisk office config set sftp_host_key ${KEY}`)
+  expect(started.err).toContain(`pbx office config set sftp_host_key ${KEY}`)
   expect(server.opened).toEqual([])
 })
 

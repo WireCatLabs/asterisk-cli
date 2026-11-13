@@ -10,7 +10,7 @@ describe("WCAT", () => {
     const manifest = buildManifest({
       identity: WCAT,
       commands: describeProgram(createProgram()),
-      pkg: { name: "@wirecat/asterisk-cli", bin: { "wcat-asterisk": "dist/bin/asterisk.js" } },
+      pkg: { name: "@wirecat/asterisk-cli", bin: { "wcat-pbx": "dist/bin/pbx.js" } },
       skills: true,
     })
 

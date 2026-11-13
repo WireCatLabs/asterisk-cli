@@ -1,26 +1,26 @@
 ---
 name: asterisk-cli
-description: Use asterisk, the WireCat CLI for Asterisk PBX phone calls, from an agent — find a call by time or number, read its transcript, transcribe new recordings, with the owner's profile and JSON answers. Use when a task needs the company's phone calls, what a caller said, or who called whom.
+description: Use pbx, the WireCat CLI for Asterisk PBX phone calls, from an agent — find a call by time or number, read its transcript, transcribe new recordings, with the owner's profile and JSON answers. Use when a task needs the company's phone calls, what a caller said, or who called whom.
 metadata:
   openclaw:
     requires:
-      bins: [asterisk]
+      bins: [pbx]
     install:
       - kind: node
         package: "@wirecat/asterisk-cli"
-        bins: [asterisk]
+        bins: [pbx]
 ---
 
-# asterisk
+# pbx
 
-Every account command starts with the owner's profile: `asterisk personal config show`. Never pick a profile yourself; if none
+Every account command starts with the owner's profile: `pbx personal config show`. Never pick a profile yourself; if none
 is given, run a command without one and read the profiles the error lists.
 
 Find your way with the tool itself, not this file:
 
-- `asterisk commands --json` is the full command tree; `asterisk commands config --json` one group.
-- `asterisk help config set` is one command's help, with what it returns.
-- `asterisk doctor --json` says what is set up on this computer.
+- `pbx commands --json` is the full command tree; `pbx commands config --json` one group.
+- `pbx help config set` is one command's help, with what it returns.
+- `pbx doctor --json` says what is set up on this computer.
 
 ## Rules
 
@@ -32,7 +32,7 @@ Find your way with the tool itself, not this file:
 
 - One call record is one meeting. Its title is the two sides, `+79000000001 → 101`; the outside number is in the
   international form when the profile's `phone_region` is set.
-- Find a caller's calls with `asterisk <profile> meetings list "title:*79000000001*" --json`, newest first; read one
+- Find a caller's calls with `pbx <profile> meetings list "title:*79000000001*" --json`, newest first; read one
   with `meetings transcript <id> --json`.
 - No transcript yet? `meetings transcribe id:<id> --json` makes one on this computer, when the call has a recording.
   It needs the speech model; the error says how to get it.

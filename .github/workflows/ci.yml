@@ -24,11 +24,11 @@ jobs:
       pack: ${{ inputs.pack || false }}
       bun-run: pnpm build && pnpm smoke:bun
       cli: true
-      bin: asterisk
+      bin: pbx
       platforms: ${{ inputs.pack || inputs.platforms || github.event_name == 'workflow_dispatch' }}
       platform-run: |
-        node dist/bin/asterisk.js commands --json >/dev/null
-        node dist/bin/asterisk.js doctor --json >/dev/null
+        node dist/bin/pbx.js commands --json >/dev/null
+        node dist/bin/pbx.js doctor --json >/dev/null
       # contracts:upgrade needs local state of the CLI's own and a published version to upgrade from (WC-TEST-14).
       # Once a CLI has both, it adds the script and removes this skip; see docs/dev/TESTING.md.
       skip: |
@@ -90,7 +90,7 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: pnpm exec cli-dev repo-check --cli asterisk
+        run: pnpm exec cli-dev repo-check --cli pbx
 
   version:
     if: github.event_name == 'pull_request'

@@ -27,6 +27,6 @@ How the tests run, and what they never touch. The rules are the handbook's
 
 `pnpm build` compiles `src/` with `tsc`, then cli-base's `cli-dev bundle`
 ([WC-LAY-10](https://github.com/WireCatLabs/cli-base/blob/main/docs/standards/layout.md))
-bundles `dist/bin/asterisk.js` into `dist/bundle/` and makes the bin a loader. The vitest suite runs
+bundles `dist/bin/pbx.js` into `dist/bundle/` and makes the bin a loader. The vitest suite runs
 against `src/`, so `scripts/smoke-bundle.ts` is the proof the bundle works: `pnpm smoke:node` runs it
 under Node and `pnpm smoke:bun` under Bun, both in CI.

@@ -1,12 +1,12 @@
 # Settings
 
-Settings live in one file, `config.json`, in the folder `asterisk doctor` shows. Each profile has its own part, and
+Settings live in one file, `config.json`, in the folder `pbx doctor` shows. Each profile has its own part, and
 `defaults` apply to every profile.
 
 ```sh
-asterisk office config show
-asterisk office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv
-asterisk office config unset cdr_csv_path
+pbx office config show
+pbx office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv
+pbx office config unset cdr_csv_path
 ```
 
 `config show` lists each setting and where it came from: the file, a variable or the default.
@@ -37,15 +37,15 @@ What each setting means is on [connect your Asterisk](asterisk.md).
 
 `permissions` decides what a command may do for this profile: `allow`, `ask`, `readonly` or `deny`, per command path
 (`meetings.sync`, `meetings.transcribe`). Over MCP there is no one to ask, so `ask` lets the command run.
-`ASTERISK_READ_ONLY=1` refuses every command that changes your sign-in or settings.
+`PBX_READ_ONLY=1` refuses every command that changes your sign-in or settings.
 
 ```sh
-asterisk office config set permissions.meetings.transcribe deny
+pbx office config set permissions.meetings.transcribe deny
 ```
 
 ## Run records
 
-A command that fails is kept as a run, for `asterisk runs list` and `runs show`. `meetings sync`, `meetings
+A command that fails is kept as a run, for `pbx runs list` and `runs show`. `meetings sync`, `meetings
 transcribe` and `session status --check` do their work in a run, so `--record` keeps them when they succeed too.
 `record_input` decides whether a run keeps the words you typed. Secrets are masked either way; see
 [Security](security.md).

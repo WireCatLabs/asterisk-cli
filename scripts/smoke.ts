@@ -70,18 +70,18 @@ try {
     NODE_OPTIONS: "",
     HOME: temp,
     DBUS_SESSION_BUS_ADDRESS: "disabled:",
-    ASTERISK_CONFIG_DIR: join(temp, "config"),
-    ASTERISK_STATE_DIR: join(temp, "state"),
-    ASTERISK_CACHE_DIR: join(temp, "cache"),
+    PBX_CONFIG_DIR: join(temp, "config"),
+    PBX_STATE_DIR: join(temp, "state"),
+    PBX_CACHE_DIR: join(temp, "cache"),
     WIRECAT_STATE_DIR: join(temp, "wirecat"),
     MESSAGING_STORE: join(temp, "never-owner.db"),
-    ASTERISK_NO_UPDATE_CHECK: "1",
+    PBX_NO_UPDATE_CHECK: "1",
   }
-  const bin = join(installed, "node_modules", name, "dist/bin/asterisk.js")
+  const bin = join(installed, "node_modules", name, "dist/bin/pbx.js")
   const run = (args: string[]) =>
     execFileSync(process.execPath, [bin, ...args], { cwd: temp, env, encoding: "utf8", timeout: 20000 })
   assert.equal(run(["--version"]).trim(), version)
-  assert.match(run(["--help"]), /Usage: asterisk/)
+  assert.match(run(["--help"]), /Usage: pbx/)
   const tree: unknown = JSON.parse(run(["commands", "--json"]))
   const names =
     isRecord(tree) && Array.isArray(tree.commands)

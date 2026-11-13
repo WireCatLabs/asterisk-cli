@@ -12,8 +12,8 @@ import { runCli } from "./testing/harness.js"
 it("mcp serve offers search, read and write, and runs a command through the CLI", async () => {
   const mcp = await mcpOverStdio((streams) => run(["personal", "mcp", "serve"], { tty: false, ...streams }))
   try {
-    expect((await mcp.tools()).sort()).toEqual(["asterisk_read", "asterisk_tools_search", "asterisk_write"])
-    const doctor = await mcp.call("asterisk_read", { command: "doctor" })
+    expect((await mcp.tools()).sort()).toEqual(["pbx_read", "pbx_tools_search", "pbx_write"])
+    const doctor = await mcp.call("pbx_read", { command: "doctor" })
     expect(doctor.body).toMatchObject({ item: { version: IDENTITY.version } })
   } finally {
     expect(await mcp.close()).toBe(0)
@@ -32,7 +32,7 @@ it("mcp serve refuses a --permission that names no command, and a --profiles thi
 it("mcp config prints an entry that serves the named profile, or every profile only when told", async () => {
   const one = await runCli(["personal", "mcp", "config", "--permission", "meetings.sync=deny", "--json"])
   const entry = one.json().item as { config: { mcpServers: Record<string, { args: string[] }> } }
-  expect(entry.config.mcpServers["asterisk-personal"]?.args.slice(-5)).toEqual([
+  expect(entry.config.mcpServers["pbx-personal"]?.args.slice(-5)).toEqual([
     "personal",
     "mcp",
     "serve",
@@ -56,7 +56,7 @@ it("doctor --online answers even when npm cannot be reached", async () => {
 })
 
 it("a denied command is offered as unavailable and refused before any request (WC-PERM-23)", async () => {
-  const file = join(process.env.ASTERISK_CONFIG_DIR ?? "", "config.json")
+  const file = join(process.env.PBX_CONFIG_DIR ?? "", "config.json")
   mkdirSync(join(file, ".."), { recursive: true })
   writeFileSync(file, JSON.stringify({ profiles: { personal: { permissions: { "meetings.sync": "deny" } } } }))
   const opened: string[] = []
@@ -70,7 +70,7 @@ it("a denied command is offered as unavailable and refused before any request (W
   }
   const mcp = await mcpOverStdio((streams) => run(["personal", "mcp", "serve"], { ...options, ...streams }))
   try {
-    const found = await mcp.call("asterisk_tools_search", { query: "meetings sync" })
+    const found = await mcp.call("pbx_tools_search", { query: "meetings sync" })
     expect(found.body).toMatchObject({
       items: expect.arrayContaining([
         expect.objectContaining({
@@ -79,7 +79,7 @@ it("a denied command is offered as unavailable and refused before any request (W
         }),
       ]),
     })
-    const synced = await mcp.call("asterisk_read", { command: "meetings sync" })
+    const synced = await mcp.call("pbx_read", { command: "meetings sync" })
     expect(synced.isError).toBe(true)
     expect(JSON.stringify(synced.body)).toContain("permission_error")
     expect(opened).toEqual([])

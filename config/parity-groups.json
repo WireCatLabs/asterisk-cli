@@ -1,7 +1,7 @@
 [
   {
     "name": "shared-roots",
-    "members": ["tg", "max", "memo", "drive", "zm", "wa", "b24", "beeline", "asterisk"],
+    "members": ["tg", "max", "memo", "drive", "zm", "wa", "b24", "beeline", "pbx"],
     "covers": ["commands", "doctor", "skill", "mcp", "upgrade"],
     "differences": [
       {
@@ -42,14 +42,14 @@
       },
       {
         "rule": "same-path-contract",
-        "target": "asterisk+max+tg+wa doctor reports create: summary",
-        "expected": "asterisk: \"the report file written: its path, the run it is about, and where to send it\", max: \"write a problem report to a file, and print how to send it\", tg: \"write a problem report to a file, and say where to send it\", wa: \"write a problem report to a file, and say where to send it\"",
+        "target": "max+pbx+tg+wa+zm doctor reports create: summary",
+        "expected": "max: \"write a problem report to a file, and print how to send it\", pbx: \"the report file written: its path, the run it is about, and where to send it\", tg: \"write a problem report to a file, and say where to send it\", wa: \"write a problem report to a file, and say where to send it\", zm: \"the report file written: its path, the run it is about, and where to send it\"",
         "reason": "cli-core 0.647 reworded doctor reports; the published tg, max and wa are on older cli-core and agree once they bump it (review by 2026-12-13)"
       },
       {
         "rule": "same-path-contract",
-        "target": "asterisk+max+tg+wa doctor reports show: summary",
-        "expected": "asterisk: \"what a report holds and never holds, and where to send it; writes nothing\", max: \"what a problem report holds and where it goes; writes nothing\", tg: \"what a problem report holds; writes nothing\", wa: \"what a problem report holds; writes nothing\"",
+        "target": "max+pbx+tg+wa+zm doctor reports show: summary",
+        "expected": "max: \"what a problem report holds and where it goes; writes nothing\", pbx: \"what a report holds and never holds, and where to send it; writes nothing\", tg: \"what a problem report holds; writes nothing\", wa: \"what a problem report holds; writes nothing\", zm: \"what a report holds and never holds, and where to send it; writes nothing\"",
         "reason": "cli-core 0.647 reworded doctor reports; the published tg, max and wa are on older cli-core and agree once they bump it (review by 2026-12-13)"
       }
     ]

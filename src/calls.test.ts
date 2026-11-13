@@ -49,7 +49,7 @@ const details = async (id: string) => {
 beforeEach(freshFolders)
 
 afterEach(() => {
-  delete process.env.ASTERISK_TOKEN
+  delete process.env.PBX_TOKEN
 })
 
 const externalIds = async () => {
@@ -138,7 +138,7 @@ it("names the setting to fill when the profile has no source yet", async () => {
   const synced = await runCli(["fresh", "meetings", "sync", "--json"])
   expect(synced.code).not.toBe(0)
   expect(synced.json()).toMatchObject({ error: { code: "configuration_error", reason: "source.not-configured" } })
-  expect(synced.err).toContain("asterisk fresh config set cdr_csv_path")
+  expect(synced.err).toContain("pbx fresh config set cdr_csv_path")
 })
 
 it("session start on a local Master.csv needs no password, checks the file, and keeps nothing", async () => {
