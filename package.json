@@ -57,7 +57,7 @@
     "docs:spell": "cspell lint --config cspell.json --no-progress --no-summary README.md SECURITY.md CHANGELOG.md AGENTS.md CLAUDE.md 'docs/*.md' 'skills/**/*.md'"
   },
   "dependencies": {
-    "@wirecat/cli-base": "0.93.0",
+    "@wirecat/cli-base": "0.95.0",
     "@wirecat/cli-core": "0.647.0",
     "commander": "15.0.0",
     "mysql2": "3.24.6",
