@@ -2,7 +2,7 @@
 
 Notable changes to `@wirecat/asterisk-cli`. One section per version, newest first.
 
-## Unreleased
+## 0.1.0 — 13.11.2026
 
 ### Added
 
