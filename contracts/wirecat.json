@@ -272,7 +272,8 @@
       "effects": {
         "remote": "none",
         "local": "write"
-      }
+      },
+      "permission": "doctor.reports.create"
     },
     {
       "path": [

@@ -2,6 +2,9 @@
 allowBuilds:
   esbuild: true
   lefthook: true
+  # ssh2's native binding and cpu-features are optional: ssh2 falls back to plain JavaScript without them.
+  ssh2: false
+  cpu-features: false
 minimumReleaseAgeExclude:
   - "@wirecat/*"
 # markdownlint-cli2 is pinned to community's version, whose markdownlint ranges katex ^0.16 with advisories.

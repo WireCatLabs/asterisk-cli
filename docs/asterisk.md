@@ -12,7 +12,7 @@ Asterisk Manager Interface (AMI) or REST Interface (ARI) account.
   - `Master.csv`, written by the `cdr_csv` module, usually `/var/log/asterisk/cdr-csv/Master.csv`;
   - a MySQL or MariaDB table (`cdr_mysql`, `cdr_adaptive_odbc`; FreePBX keeps it in `asteriskcdrdb.cdr`);
   - a PostgreSQL table (`cdr_pgsql`).
-- **Recordings** in a folder this computer can read: a local folder, or the PBX's folder mounted read-only.
+- **Recordings** in a folder this computer can read, a folder mounted read-only, or the PBX's own folder over SFTP.
   WAV, wav49 (`.WAV`), GSM, MP3, Ogg, Opus, FLAC and M4A are found; WAV and GSM need `ffmpeg` to be transcribed.
 
 Checked so far with the made-up records and recordings in `examples/`, built from the CDR specification and the
@@ -48,8 +48,8 @@ asterisk office config set cdr_csv_columns "accountcode,src,dst,dcontext,clid,ch
 Times in `Master.csv` are the PBX's local time unless `usegmtime=yes`. Set `cdr_timezone` to the PBX's zone, or to
 `UTC` when `usegmtime` is on. Without it, this computer's zone is used.
 
-When `asterisk` runs on another computer, copy `Master.csv` there on a schedule, or mount the PBX's log folder
-read-only, for example with `sshfs pbx:/var/log/asterisk/cdr-csv ~/pbx-cdr -o ro`.
+When `asterisk` runs on another computer, read `Master.csv` on the PBX over SFTP (below), or mount the PBX's log
+folder read-only, for example with `sshfs pbx:/var/log/asterisk/cdr-csv ~/pbx-cdr -o ro`.
 
 ## A CDR database
 
@@ -111,8 +111,34 @@ asterisk office config set recordings_pattern "calls/{yyyy}-{mm}-{dd}/*{linkedid
 
 A file changed in the last two minutes may still be written by MixMonitor, so it is left for the next sync. A call
 without a recording is imported all the same. The recording is linked by its path: it is never copied, moved or
-changed. When the folder is on the PBX, mount it read-only, for example
+changed. When the folder is on the PBX, read it over SFTP (below), or mount it read-only, for example
 `sshfs pbx:/var/spool/asterisk/monitor ~/pbx-monitor -o ro`, and set `recordings_path` to the mount.
+
+## Files on the PBX over SFTP
+
+`files_from sftp` reads `Master.csv` and the recordings on the PBX itself, through its SSH server. Nothing is copied
+to a folder of its own and nothing is written there. Make a user that may only read those folders, for example one in
+the `asterisk` group, then:
+
+```sh
+asterisk office config set files_from sftp
+asterisk office config set sftp_host pbx.example.lan
+asterisk office config set sftp_user wirecat
+asterisk office config set sftp_key_path ~/.ssh/wirecat_pbx      # or leave it out to sign in with a password
+asterisk office session start
+```
+
+The first `session start` connects only far enough to see the server's key, and stops. It prints the key's
+fingerprint and the command that pins it. Compare the fingerprint with the PBX's own, from
+`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` there, and only then run that command
+(`config set sftp_host_key SHA256:…`). No password or key is sent to a server whose key is not pinned, and a server
+whose key changes is refused. Then `session start` asks the SFTP password, if there is no key file, checks it by
+reading the newest call records, and keeps it in the keyring.
+
+Paths are the PBX's: `cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv`, `recordings_path
+/var/spool/asterisk/monitor`. A profile that reads its CDR from a database keeps that database's password, so its SFTP
+side signs in with a key file. A dropped connection or a timeout is tried again; a wrong password, a changed key or a
+missing file is not.
 
 ## Numbers, directions and people
 

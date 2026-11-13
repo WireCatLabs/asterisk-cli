@@ -1,7 +1,7 @@
+import { e164Of } from "@wirecat/cli-core"
 import type { MeetingSave, MeetingSource, SourceMeeting, SourceParticipant } from "@wirecat/cli-core/meetings"
 import { type Call, callOf, isDialable, type Party } from "./cdr/call.js"
 import type { CdrRow } from "./cdr/record.js"
-import { e164 } from "./phone.js"
 import type { Recording } from "./recordings.js"
 
 export const PROVIDER_NAME = "asterisk"
@@ -25,6 +25,9 @@ export interface CallSourceOptions {
   /** Told how many rows were unreadable, so the run shows it. */
   skipped?: (count: number) => void
 }
+
+/** The form WhatsApp, MAX and the CRMs keep, so the caller is one `phone:` identity across them. */
+const e164 = (number: string, region: string | null) => e164Of(number, region ?? undefined) ?? null
 
 const labelOf = (party: Party | null, region: string | null) =>
   party ? (party.internal ? party.number : (e164(party.number, region) ?? party.number)) : "?"

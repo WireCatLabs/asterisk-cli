@@ -161,10 +161,3 @@ it("meetings transcribe reads only the recordings: no password and no database, 
   expect(done.json().item).toMatchObject({ transcribed: 1 })
   expect(table.asked).toHaveLength(asked)
 })
-
-it("session start refuses files_from sftp before it asks any password", async () => {
-  await configure({ files_from: "sftp", sftp_host: "pbx.example.test", sftp_user: "reader" })
-  const started = await runCli(["office", "session", "start", "--json"], { keyring: memoryKeyring(), stdin: "x\n" })
-  expect(started.json()).toMatchObject({ error: { code: "configuration_error", reason: "source.bad-setting" } })
-  expect(started.err).not.toContain("password of the SFTP user")
-})

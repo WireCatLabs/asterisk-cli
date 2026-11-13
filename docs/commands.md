@@ -49,8 +49,6 @@ asterisk commands info [path]
 |---|---|---|
 | `path` | optional | one command path; without one, export schemas, error reasons and explicit overrides. |
 
-**Returns:** one command contract, or all schemas, error reasons and explicit overrides
-
 **Example:** `asterisk commands info commands`
 
 ## `asterisk session`
@@ -71,8 +69,6 @@ asterisk session start [options]
 |---|---|
 | `--credential-storage <storage>` | where the password is kept: keyring, which falls back to a private file by itself, or file. Default: `keyring`. |
 
-**Returns:** check the profile's Asterisk source and keep its password
-
 **Example:** `asterisk office session start`, `asterisk office session start --credential-storage file`
 
 ### `asterisk session status`
@@ -87,8 +83,6 @@ asterisk session status [options]
 |---|---|
 | `--check` | read the newest call records to prove the settings and the password work. |
 
-**Returns:** show where this profile's password comes from; never the password
-
 **Example:** `asterisk office session status`, `asterisk office session status --check --json`
 
 ### `asterisk session end`
@@ -101,8 +95,6 @@ forget this profile's password on this computer; the imported calls stay, and th
 asterisk session end
 ```
 
-**Returns:** forget this profile's password on this computer; imported calls stay
-
 **Example:** `asterisk personal session end`
 
 ### `asterisk session list`
@@ -112,8 +104,6 @@ list the profiles on this computer and whether each has a password; picks none
 ```sh
 asterisk session list
 ```
-
-**Returns:** list the profiles here and whether each is signed in
 
 **Example:** `asterisk session list`, `asterisk session list --json`
 
@@ -436,8 +426,6 @@ asterisk doctor [options]
 |---|---|
 | `--online` | also connect once and read the account; sends nothing. |
 
-**Returns:** the state this installation is in, without connecting unless --online
-
 **Example:** `asterisk doctor`, `asterisk doctor --json`
 
 ### `asterisk doctor reports`
@@ -451,8 +439,6 @@ what a problem report holds; writes nothing
 ```sh
 asterisk doctor reports show
 ```
-
-**Returns:** what a report holds and never holds, and where to send it; writes nothing
 
 **Example:** `asterisk doctor reports show`
 
@@ -470,8 +456,6 @@ asterisk doctor reports create [options]
 |---|---|
 | `--run <id>` | the run the report is about; the newest failed one if not given. |
 | `--output <file>` | where to write it; a new file in this directory if not given. |
-
-**Returns:** the report file written: its path, the run it is about, and where to send it
 
 **Example:** `asterisk doctor reports create --output ./problem-report.json`
 
@@ -491,8 +475,6 @@ asterisk skill show [options]
 |---|---|
 | `--for <agents>` | print the copy installed for these agents instead of this version's. One of: `claude`, `agents`. |
 
-**Returns:** print the tool's instructions for AI agents
-
 **Example:** `asterisk skill show`
 
 ### `asterisk skill install`
@@ -509,8 +491,6 @@ asterisk skill install [options]
 |---|---|
 | `--for <agents>` | which agents to install for. One of: `claude`, `agents`, `hermes`, `all`. Default: `all`. |
 
-**Returns:** install the tool's instructions for AI agents
-
 **Example:** `asterisk skill install --for agents`
 
 ### `asterisk skill status`
@@ -520,8 +500,6 @@ for each place `asterisk skill install` writes to, and for the copy Hermes reads
 ```sh
 asterisk skill status
 ```
-
-**Returns:** whether the installed instructions for AI agents match this version
 
 **Example:** `asterisk skill status`, `asterisk skill status --json`
 
@@ -547,8 +525,6 @@ asterisk mcp serve [options]
 | `--port <port>` | the local port for --http (default 8765). |
 | `--public-url <url>` | the tunnel's https address the browser apps use, e.g. https://<name>.ts.net or https://<name>.ts.net/tg. |
 
-**Returns:** serve this profile's commands to an AI agent
-
 **Example:** `asterisk personal mcp serve`, `asterisk mcp serve --profiles work,personal`, `asterisk personal mcp serve --http --public-url https://laptop.example.ts.net`
 
 ### `asterisk mcp revoke`
@@ -564,8 +540,6 @@ asterisk mcp revoke [options]
 | Option | What it does |
 |---|---|
 | `--profiles <names\|all>` | serve several profiles from one server instead of one: names, comma-separated, or all for every profile. |
-
-**Returns:** forget every login given to a browser app
 
 **Example:** `asterisk personal mcp revoke`, `asterisk mcp revoke --profiles all`
 
@@ -590,8 +564,6 @@ asterisk mcp server start [options]
 | `--permission <key=level>` | make a permission stricter for this server only; repeat for more keys. |
 | `--profiles <names\|all>` | the server of several profiles that `mcp serve --profiles` serves: names, comma-separated, or all. |
 
-**Returns:** start the HTTP MCP server in the background
-
 **Example:** `asterisk personal mcp server start --public-url https://laptop.example.ts.net`
 
 #### `asterisk mcp server stop`
@@ -608,8 +580,6 @@ asterisk mcp server stop [options]
 |---|---|
 | `--profiles <names\|all>` | the server of several profiles that `mcp serve --profiles` serves: names, comma-separated, or all. |
 
-**Returns:** stop the background HTTP MCP server
-
 **Example:** `asterisk personal mcp server stop`
 
 #### `asterisk mcp server status`
@@ -623,8 +593,6 @@ asterisk mcp server status [options]
 | Option | What it does |
 |---|---|
 | `--profiles <names\|all>` | the server of several profiles that `mcp serve --profiles` serves: names, comma-separated, or all. |
-
-**Returns:** whether the HTTP MCP server runs, its login code and the apps logged in
 
 **Example:** `asterisk personal mcp server status --json`
 
@@ -640,8 +608,6 @@ asterisk mcp config [options]
 |---|---|
 | `--permission <key=level>` | make a permission stricter for this server only, like meetings.sync=deny; it never loosens the profile; repeat for more keys. |
 | `--profiles <names\|all>` | serve several profiles from one server instead of one: names, comma-separated, or all for every profile. |
-
-**Returns:** print the local MCP configuration of this profile, or of those --profiles names
 
 **Example:** `asterisk personal mcp config`, `asterisk mcp config --profiles all`
 
@@ -664,8 +630,6 @@ asterisk mcp add <client> [options]
 | `--allow-writes` | acknowledge that this profile offers writing tools. |
 | `--permission <key=level>` | make a permission stricter for this server only, like meetings.sync=deny; it never loosens the profile; repeat for more keys. |
 
-**Returns:** add this profile's local MCP server to Codex or Claude Code
-
 **Example:** `asterisk personal mcp add codex --allow-writes`
 
 ### `asterisk mcp check`
@@ -679,8 +643,6 @@ asterisk mcp check [options]
 | Option | What it does |
 |---|---|
 | `--permission <key=level>` | make a permission stricter for this server only, like meetings.sync=deny; it never loosens the profile; repeat for more keys. |
-
-**Returns:** check this profile's local MCP handshake and tool list
 
 **Example:** `asterisk personal mcp check`
 
@@ -698,8 +660,6 @@ asterisk upgrade [options]
 |---|---|
 | `--check` | say whether a newer version exists, and install nothing. |
 
-**Returns:** upgrade asterisk with the package manager that installed it; --check only looks
-
 **Example:** `asterisk upgrade --check`
 
 ## `asterisk config`
@@ -713,8 +673,6 @@ the profile, the profiles that exist, and each setting with where it came from
 ```sh
 asterisk config show
 ```
-
-**Returns:** the profile, the profiles that exist, and each setting with where it came from
 
 **Example:** `asterisk personal config show`
 
@@ -737,8 +695,6 @@ asterisk config set <setting> <value> [options]
 |---|---|
 | `--defaults` | change what every profile gets, rather than this profile. |
 
-**Returns:** save a setting to the configuration file
-
 **Example:** `asterisk personal config set limit 20`
 
 ### `asterisk config unset`
@@ -759,8 +715,6 @@ asterisk config unset <setting> [options]
 |---|---|
 | `--defaults` | change what every profile gets, rather than this profile. |
 
-**Returns:** remove a setting from the configuration file
-
 **Example:** `asterisk personal config unset limit`
 
 ### `asterisk config migrate`
@@ -772,8 +726,6 @@ write each setting the file lacks at its default, keeping yours
 ```sh
 asterisk config migrate
 ```
-
-**Returns:** write each setting the file lacks at its default, keeping yours
 
 **Example:** `asterisk config migrate`
 
@@ -790,8 +742,6 @@ asterisk config repair [options]
 | Option | What it does |
 |---|---|
 | `--dry-run` | say what it would fix, and change nothing. |
-
-**Returns:** fix the settings file's JSON syntax, keeping every value
 
 **Example:** `asterisk config repair`, `asterisk config repair --dry-run`
 
