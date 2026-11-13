@@ -75,7 +75,7 @@ export const asteriskFolder = (files: Record<string, string | Uint8Array>): stri
 export const freshFolders = () => {
   const folder = mkdtempSync(join(tmpdir(), "asterisk-run-"))
   process.env.MESSAGING_STORE = join(folder, "store.db")
-  process.env.ASTERISK_CONFIG_DIR = join(folder, "config")
+  process.env.PBX_CONFIG_DIR = join(folder, "config")
 }
 
 /** Settings for profile `office`, written as `config set` would. */

@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/WireCatLabs/asterisk-cli/main/docs/images/social-preview.png" alt="Asterisk PBX calls and recordings for your AI agent" width="100%">
 </p>
 
-# asterisk — Asterisk PBX calls for AI agents
+# pbx — Asterisk PBX calls for AI agents
 
 **Asterisk PBX calls and recordings for your AI agent.** Ask who called about the invoice, what the client was
 promised, and which calls nobody answered, from Claude Code, Codex or any MCP client.
@@ -21,18 +21,18 @@ transcribed on your computer, searchable offline, and ready for any agent, withi
 <!-- Demo slot: a 30–45 s recording of the exchange below goes here, as an absolute
      raw.githubusercontent.com URL so it also renders on npmjs.com. Invented calls only. -->
 
-`asterisk` reads the PBX's call records (CDR) from `Master.csv` or from the CDR database, and copies them into the
+`pbx` reads the PBX's call records (CDR) from `Master.csv` or from the CDR database, and copies them into the
 local [WireCat](https://wirecat.dev) store: one meeting per call record, with the extension and the outside caller as
 its people. It links each call to its recording file. `meetings transcribe` turns the recordings into text with a
 speech model that runs on this computer. Then you and your agent list, read and search the calls with no network,
-next to the chats, mail and meetings of the other WireCat tools. `asterisk` only reads: it never changes the PBX, its
+next to the chats, mail and meetings of the other WireCat tools. `pbx` only reads: it never changes the PBX, its
 settings or a recording.
 
 An example conversation (invented calls, illustrative output):
 
 ```text
-You:    Use asterisk. What did +7 900 000-00-01 say about the payment on the last call?
-Agent:  (runs asterisk office meetings list "title:*79000000001*" --json, then asterisk office meetings transcript 1 --json)
+You:    Use pbx. What did +7 900 000-00-01 say about the payment on the last call?
+Agent:  (runs pbx office meetings list "title:*79000000001*" --json, then pbx office meetings transcript 1 --json)
         On 31 October the client said the invoice will be paid on Friday, after their director signs it.
 ```
 
@@ -40,14 +40,14 @@ Agent:  (runs asterisk office meetings list "title:*79000000001*" --json, then a
 
 ```sh
 npm install -g @wirecat/asterisk-cli
-asterisk office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv
-asterisk office config set recordings_path /var/spool/asterisk/monitor
-asterisk office config set cdr_timezone Europe/Moscow
-asterisk office config set phone_region ru
-asterisk office session start             # checks the source; asks a password only for a database
-asterisk office meetings sync             # import the call records and link their recordings
-asterisk models download gigaam-v3        # the local speech model, once
-asterisk office meetings transcribe       # transcribe up to 20 recorded calls
+pbx office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv
+pbx office config set recordings_path /var/spool/asterisk/monitor
+pbx office config set cdr_timezone Europe/Moscow
+pbx office config set phone_region ru
+pbx office session start             # checks the source; asks a password only for a database
+pbx office meetings sync             # import the call records and link their recordings
+pbx models download gigaam-v3        # the local speech model, once
+pbx office meetings transcribe       # transcribe up to 20 recorded calls
 ```
 
 `office` is a profile: a name you choose for one PBX. It is the first word of every command that uses an account.
@@ -55,8 +55,7 @@ The first sync reads 30 days back; `--since-time 2025-01-01T00:00:00Z` reads fur
 new, and a repeated sync never makes a call twice.
 
 You need Node.js 22.16 or a later 22.x, or Node.js 24 or later, and `ffmpeg` to transcribe WAV and GSM recordings.
-`asterisk` runs on your computer, not on the PBX: there, Asterisk has its own `asterisk` program, so type
-`wcat-asterisk` instead.
+The command is `pbx`, also installed as `wcat-pbx`. It is not `asterisk`, so it never hides the PBX's own program.
 
 More: [installation](docs/installation.md) · [connect your Asterisk](docs/asterisk.md).
 
@@ -65,14 +64,14 @@ More: [installation](docs/installation.md) · [connect your Asterisk](docs/aster
 **List the calls.** Filter by time, duration or the number in the title.
 
 ```sh
-asterisk office meetings list "started_at>=2026-11-01 duration_ms>=60000"
+pbx office meetings list "started_at>=2026-11-01 duration_ms>=60000"
 ```
 
 **Read a call.** Who called whom, when, how long, and its recording.
 
 ```sh
-asterisk office meetings show 42
-asterisk office meetings transcript 42
+pbx office meetings show 42
+pbx office meetings transcript 42
 ```
 
 **Transcribe what is new.** Without a query, every call of five seconds or more that has a recording and no
@@ -80,27 +79,27 @@ transcript yet, newest first. A recording already transcribed is not read again.
 rest go on.
 
 ```sh
-asterisk office meetings transcribe --max-meetings 50
+pbx office meetings transcribe --max-meetings 50
 ```
 
 More:
 
-- Find an operator across the calls: `asterisk office meetings people "Anna"`.
-- Export a call as Markdown or WebVTT: `asterisk office meetings export 42 --format vtt --output call.vtt`.
+- Find an operator across the calls: `pbx office meetings people "Anna"`.
+- Export a call as Markdown or WebVTT: `pbx office meetings export 42 --format vtt --output call.vtt`.
 - Ask about one person across calls, chats and mail: `memo context "Ivan Testov"`.
 
 More: [use it](docs/usage.md).
 
 ## For AI agents
 
-- **An agent with a terminal** — Claude Code, Codex, Gemini CLI, OpenClaw or Hermes Agent. It runs `asterisk` itself.
-  `asterisk skill install` writes the skill, the agent's instruction sheet.
+- **An agent with a terminal** — Claude Code, Codex, Gemini CLI, OpenClaw or Hermes Agent. It runs `pbx` itself.
+  `pbx skill install` writes the skill, the agent's instruction sheet.
 - **An app with no terminal** — Claude Desktop, Cursor and other MCP clients. Connect the profile's MCP server,
-  `asterisk office mcp serve`; `asterisk office mcp config` prints the entry to paste.
+  `pbx office mcp serve`; `pbx office mcp config` prints the entry to paste.
 
 ```sh
-asterisk skill install
-asterisk office mcp add claude-code --allow-writes   # or: codex
+pbx skill install
+pbx office mcp add claude-code --allow-writes   # or: codex
 ```
 
 `meetings sync` and `meetings transcribe` change the local store, so `mcp add` stops until you pass
@@ -121,23 +120,23 @@ name, a phone number — is marked `untrusted`: it is data for the agent, never 
 
 ## Sign-in and profiles
 
-Each profile is one PBX. No command ever picks a profile for you; `asterisk session list` lists them.
+Each profile is one PBX. No command ever picks a profile for you; `pbx session list` lists them.
 
 ```sh
-asterisk office session start             # checks the source, asks a password only for a database
-asterisk office session status --check    # read the newest call records again
-asterisk office session end               # forget the password; the imported calls stay
+pbx office session start             # checks the source, asks a password only for a database
+pbx office session status --check    # read the newest call records again
+pbx office session end               # forget the password; the imported calls stay
 ```
 
 A profile on a local or mounted `Master.csv` needs no password. A database profile asks for the password of a
 read-only user once, checks it, and keeps it in the system keyring. Where the keyring fails, it uses a private file and
-says so once. `ASTERISK_TOKEN` in the environment is read first.
+says so once. `PBX_TOKEN` in the environment is read first.
 
 ## Settings and permissions
 
-The settings of each source are in [connect your Asterisk](docs/asterisk.md); `asterisk office config show` lists
+The settings of each source are in [connect your Asterisk](docs/asterisk.md); `pbx office config show` lists
 them. Each command has a permission key, its path: `meetings.sync`, `meetings.transcribe`. Each is `allow`, `ask`,
-`readonly` or `deny`. `ASTERISK_READ_ONLY=1` refuses every command that changes your sign-in or settings.
+`readonly` or `deny`. `PBX_READ_ONLY=1` refuses every command that changes your sign-in or settings.
 
 More: [settings](docs/configuration.md).
 
@@ -163,10 +162,10 @@ More: [security](docs/security.md). Report a vulnerability as [SECURITY.md](SECU
 ## When it does not work
 
 ```sh
-asterisk doctor                           # what is set up; no network, no keyring
-asterisk office session status --check    # does the source still answer
-asterisk office meetings sync --trace     # the connection log, never content
-asterisk office runs list                 # failed runs are kept
+pbx doctor                           # what is set up; no network, no keyring
+pbx office session status --check    # does the source still answer
+pbx office meetings sync --trace     # the connection log, never content
+pbx office runs list                 # failed runs are kept
 ```
 
 More: [when something goes wrong](docs/troubleshooting.md).
@@ -197,8 +196,8 @@ pnpm release:check                     # every check CI runs
 
 ## Part of WireCat
 
-`asterisk` is one of the [WireCat](https://wirecat.dev) tools. They share one local store, so a caller found in
-`asterisk` is the same person in Telegram, MAX, WhatsApp, mail and the CRM, and `memo` answers about them across all
+`pbx` is one of the [WireCat](https://wirecat.dev) tools. They share one local store, so a caller found in
+`pbx` is the same person in Telegram, MAX, WhatsApp, mail and the CRM, and `memo` answers about them across all
 of it. The PBX sibling is beeline-cli, for Beeline's cloud PBX.
 
 ## Contributing and license

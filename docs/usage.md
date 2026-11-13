@@ -7,10 +7,10 @@ This page explains how a command is built, and how an agent uses the tool. Read 
 A profile is a name you choose for one PBX. It is the first word of every command that uses an account:
 
 ```sh
-asterisk office meetings list
+pbx office meetings list
 ```
 
-`ASTERISK_PROFILE=office` does the same for one shell session. No profile is ever assumed, not even the only one: a
+`PBX_PROFILE=office` does the same for one shell session. No profile is ever assumed, not even the only one: a
 command without one stops with exit code 2 and lists the profiles on this computer.
 
 ## Calls are meetings
@@ -19,15 +19,15 @@ Each CDR row is one meeting in the WireCat store. Its title is the two sides, `+
 the extension (`manager`) and the outside number (`client`); its recording is an attachment.
 
 ```sh
-asterisk office meetings sync                                  # import what is new
-asterisk office meetings list "started_at>=2026-11-01"          # newest first
-asterisk office meetings list "title:*79000000001*"             # the calls of one number
-asterisk office meetings show 42                                 # times, people, recording
-asterisk office meetings transcribe                              # recordings to text, on this computer
-asterisk office meetings transcript 42                           # what was said
+pbx office meetings sync                                  # import what is new
+pbx office meetings list "started_at>=2026-11-01"          # newest first
+pbx office meetings list "title:*79000000001*"             # the calls of one number
+pbx office meetings show 42                                 # times, people, recording
+pbx office meetings transcribe                              # recordings to text, on this computer
+pbx office meetings transcript 42                           # what was said
 ```
 
-`asterisk office meetings list --help` lists the fields a query takes.
+`pbx office meetings list --help` lists the fields a query takes.
 
 ## Output for scripts
 
@@ -36,12 +36,12 @@ JSON on stderr, with a code and a reason to branch on. The [command reference](c
 
 ## Agents
 
-`asterisk skill install` puts the tool's skill where Claude Code, Codex, Gemini CLI and OpenClaw look for it.
-`asterisk skill install --for hermes` also adds that folder to Hermes Agent's own settings, so a bare `skill install`
-leaves Hermes out. `asterisk office mcp serve` serves the profile's commands over MCP, on stdin and stdout:
+`pbx skill install` puts the tool's skill where Claude Code, Codex, Gemini CLI and OpenClaw look for it.
+`pbx skill install --for hermes` also adds that folder to Hermes Agent's own settings, so a bare `skill install`
+leaves Hermes out. `pbx office mcp serve` serves the profile's commands over MCP, on stdin and stdout:
 
 ```sh
-claude mcp add asterisk -- asterisk office mcp serve
+claude mcp add pbx -- pbx office mcp serve
 ```
 
 The server offers every command but `session start` and `session end`. The profile's permissions decide what runs;
@@ -49,6 +49,6 @@ see [settings](configuration.md#permissions). Text from a call — a transcript,
 agent marked as untrusted data.
 
 For ChatGPT and Claude in the browser,
-`asterisk office mcp serve --http --public-url https://laptop.example.ts.net` serves on `127.0.0.1` (port 8765, or
+`pbx office mcp serve --http --public-url https://laptop.example.ts.net` serves on `127.0.0.1` (port 8765, or
 `--port`) behind your own tunnel. A browser app logs in with a one-time code that the command prints;
-`asterisk office mcp revoke` ends every login.
+`pbx office mcp revoke` ends every login.

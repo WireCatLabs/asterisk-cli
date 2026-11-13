@@ -1,9 +1,9 @@
 # Security
 
 What WireCat CLIs share — the keyring, permissions, MCP and what never reaches a log — is on the
-[shared security page](https://wirecat.dev/en/docs/security). This page keeps only what is particular to `asterisk`.
+[shared security page](https://wirecat.dev/en/docs/security). This page keeps only what is particular to `pbx`.
 
-`asterisk` keeps its settings in `config.json` and its state in the folders `asterisk doctor` shows. It reads the PBX
+`pbx` keeps its settings in `config.json` and its state in the folders `pbx doctor` shows. It reads the PBX
 and never writes to it: Master.csv and the recordings are opened for reading only, and a database session is opened
 read-only and sends a `SELECT` of the CDR table, with values as parameters. Give it a user that may do no more, as
 [connect your Asterisk](asterisk.md#a-cdr-database) shows, and keep the database and AMI off the internet.
@@ -25,18 +25,18 @@ Speech is recognized on this computer. No recording or transcript goes to an out
 
 Recording a phone call, keeping it and turning it into text may need the consent of the people on the call, and the
 law of your country decides how (in Russia, for example, 152-FZ on personal data). Telling callers that the call is
-recorded, and keeping recordings only as long as allowed, are the PBX owner's duties. `asterisk` reads only the
+recorded, and keeping recordings only as long as allowed, are the PBX owner's duties. `pbx` reads only the
 recordings the PBX already made, and deletes none of them.
 
-`asterisk personal mcp serve --http` listens on `127.0.0.1` only, for browser apps that reach it through your own
+`pbx personal mcp serve --http` listens on `127.0.0.1` only, for browser apps that reach it through your own
 tunnel. Each app logs in with a one-time code, and the server keeps a hash of each login it gives, in the state
-folder, readable by you only. `asterisk personal mcp revoke` forgets every one of them.
+folder, readable by you only. `pbx personal mcp revoke` forgets every one of them.
 
-A run record keeps the command line as you typed it, so `asterisk runs show` tells you what was run. A secret is still
+A run record keeps the command line as you typed it, so `pbx runs show` tells you what was run. A secret is still
 stored as `[redacted]`: an option named like a token or password, a password in a link, a long opaque string. A
 phone number is replaced by `[redacted]` inside the word you typed, message text included: one written with its "+" and
 country code, or 11 to 15 digits in a row, so a long id of that length is hidden as well. To keep none of the words
-you type, run `asterisk personal config set record_input false`.
+you type, run `pbx personal config set record_input false`.
 
 A secret is also found by what it looks like, in a run record and in a kept error message: a token in a known
 format (GitHub, OpenAI, Slack, AWS, Stripe, npm and the like), a `Bearer` credential, a random-looking string of 20 or
@@ -48,6 +48,6 @@ password typed without a secret name before it, and a secret inside a link or a 
 format or after a secret name.
 
 `config.json` is saved readable by you only (`0600`), and its folder is created for you only (`0700`). A file or
-folder made by an older version may be open to other users of the computer: `asterisk doctor` lists each under
+folder made by an older version may be open to other users of the computer: `pbx doctor` lists each under
 `files.problems` and prints the `chmod` that fixes it. Windows is not checked. Report a vulnerability as [SECURITY.md](https://github.com/WireCatLabs/asterisk-cli/blob/main/SECURITY.md)
 says.

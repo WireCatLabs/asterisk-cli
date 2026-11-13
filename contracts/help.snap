@@ -1,7 +1,7 @@
-asterisk — Asterisk PBX calls in a local store: transcribe the recordings on this computer, then
-read and search offline.
+pbx — Asterisk PBX calls in a local store: transcribe the recordings on this computer, then read and
+search offline.
 
-Usage: asterisk <profile> <command> [options]
+Usage: pbx <profile> <command> [options]
 Account commands start with your profile, a name you choose; none is ever assumed.
 
 What you can do:
@@ -22,7 +22,7 @@ Works with:
   mail                                IMAP mail in the same local store: search your mailbox offline, next to your other WireCat data
   b24                                 Bitrix24 CRM: deals, leads and pipelines, searchable with your other WireCat data
 
-Start here:   asterisk office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv  (any profile name works)
-Next:         asterisk commands                                                             every command, by section
-              asterisk help options                                                         output, offline, timeouts, dry run
-For agents:   asterisk skill show                                                           rules and the discovery loop
+Start here:   pbx office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv  (any profile name works)
+Next:         pbx commands                                                             every command, by section
+              pbx help options                                                         output, offline, timeouts, dry run
+For agents:   pbx skill show                                                           rules and the discovery loop

@@ -1,6 +1,6 @@
-# asterisk — design
+# pbx — design
 
-What `asterisk` is for and the decisions that shape it. Started from `npx @wirecat/cli-template new`; the answers below
+What `pbx` is for and the decisions that shape it. Started from `npx @wirecat/cli-template new`; the answers below
 are the owner's.
 
 ## Answers
@@ -33,9 +33,9 @@ Owner, 2026-11-12.
   in cli-core); the owner chose the meetings tables, which already hold recordings, transcripts and people, and
   which every WireCat tool reads. No second ingestion path is built.
 - **Sources:** Master.csv, MySQL or MariaDB, PostgreSQL, and SFTP for remote files. The SFTP client belongs in
-  cli-core, with retries, timeouts and tracing, for every CLI (`@wirecat/cli-core/sftp`, 0.648.0); asterisk reads
+  cli-core, with retries, timeouts and tracing, for every CLI (`@wirecat/cli-core/sftp`, 0.648.0); pbx reads
   through it from 0.2.0. The server's key is pinned by the owner (`sftp_host_key`) before any credential is sent.
-- **Names:** the command is `asterisk`, the package `@wirecat/asterisk-cli`; `wcat-asterisk` is the same program.
+- **Names:** the command is `pbx`, the package `@wirecat/asterisk-cli`; `wcat-asterisk` is the same program.
 - **Release:** a repository, merged pull requests and a release to npm; WireCat Desktop gets the tool next.
 
 ## Decisions

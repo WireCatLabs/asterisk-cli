@@ -2,7 +2,7 @@
 
 # Test matrix
 
-Every command and option of `asterisk`, and whether an offline test drives it through the CLI. ✅ a test
+Every command and option of `pbx`, and whether an offline test drives it through the CLI. ✅ a test
 ran it · ⛔ not tested offline, with the reason and where it is checked instead · ❌ nothing.
 Measured from the test run (`coverage/argv.jsonl`), not searched for — see
 [TESTING.md](TESTING.md) for how, and for the states and failures that cut across commands.

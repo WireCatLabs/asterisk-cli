@@ -1,6 +1,6 @@
 {
   "name": "@wirecat/asterisk-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Asterisk PBX calls (CDR from Master.csv, MySQL or PostgreSQL) and their recordings as meetings in the local WireCat store, transcribed on your computer, for AI agents. Read-only.",
   "license": "Apache-2.0",
   "author": "Viacheslav Ptsarev",
@@ -14,8 +14,8 @@
   },
   "packageManager": "pnpm@11.28.8",
   "bin": {
-    "asterisk": "dist/bin/asterisk.js",
-    "wcat-asterisk": "dist/bin/asterisk.js"
+    "pbx": "dist/bin/pbx.js",
+    "wcat-pbx": "dist/bin/pbx.js"
   },
   "files": [
     "dist",
@@ -26,7 +26,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc --build --force && cli-dev bundle --bin dist/bin/asterisk.js --external pg --external mysql2 --external ssh2",
+    "build": "tsc --build --force && cli-dev bundle --bin dist/bin/pbx.js --external pg --external mysql2 --external ssh2",
     "typecheck": "tsc --build --force --emitDeclarationOnly && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -34,7 +34,7 @@
     "test:coverage": "vitest run --coverage",
     "test:slow": "vitest run --reporter=json --outputFile=coverage/tests.json >/dev/null; cli-dev slow-tests",
     "test:matrix": "vitest run >/dev/null && pnpm build >/dev/null && pnpm test:matrix:check",
-    "test:matrix:check": "cli-dev test-matrix --program scripts/command-program.ts --untested scripts/test-matrix-untested.ts --name asterisk --check && git diff --exit-code -- docs/dev/test-matrix.md",
+    "test:matrix:check": "cli-dev test-matrix --program scripts/command-program.ts --untested scripts/test-matrix-untested.ts --name pbx --check && git diff --exit-code -- docs/dev/test-matrix.md",
     "generate": "pnpm build && node --experimental-strip-types scripts/commands.ts && cli-dev manifest --program dist/program.js --identity dist/wcat.js",
     "generate:check": "pnpm build && node --experimental-strip-types scripts/commands.ts --check && cli-dev manifest --program dist/program.js --identity dist/wcat.js --check",
     "smoke": "node --experimental-strip-types scripts/smoke.ts",
@@ -48,7 +48,7 @@
     "version:check": "cli-dev version && node --experimental-strip-types scripts/version-level.ts",
     "version:sync": "cli-dev version --sync",
     "standards:check": "node config/wirecat/check.mjs",
-    "lint:commands": "pnpm build && cli-dev lint --cli dist/bin/asterisk.js",
+    "lint:commands": "pnpm build && cli-dev lint --cli dist/bin/pbx.js",
     "audit:commands": "pnpm build && bash scripts/audit.sh",
     "ci:quick": "pnpm typecheck && pnpm build && pnpm lint:commands",
     "release:check": "pnpm standards:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm lint:commands && pnpm audit:commands && pnpm contracts:check && pnpm test:matrix:check && pnpm docs:check && pnpm generate:check && pnpm version:check && pnpm security:no-leak && pnpm package:check",

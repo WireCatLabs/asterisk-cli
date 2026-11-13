@@ -81,7 +81,7 @@ it("lists a recording that cannot be decoded and goes on with the rest", async (
 it("refuses a model that is not downloaded, and says how to get it", async () => {
   const done = await transcribe([], { speech: speech({ isInstalled: () => false }) })
   expect(done.json()).toMatchObject({ error: { code: "not_found", reason: "model.not-downloaded" } })
-  expect(done.err).toContain("asterisk models download gigaam-v3")
+  expect(done.err).toContain("pbx models download gigaam-v3")
 })
 
 it("stops at --max-meetings, and --replace transcribes again what has a transcript", async () => {

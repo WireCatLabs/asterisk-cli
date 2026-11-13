@@ -1,8 +1,8 @@
 [
   {
     "rule": "wcat-bin-name",
-    "target": "package.json \"bin\" asterisk",
-    "reason": "Keeps the short asterisk command beside wcat-asterisk, as beeline, gcal and mail do. It runs on the owner's computer, not on the PBX; on a server where Asterisk's own asterisk is on PATH, wcat-asterisk is the name to type, and the README says so.",
+    "target": "package.json \"bin\" pbx",
+    "reason": "Keeps the short pbx command beside wcat-pbx, as zm, beeline, gcal and mail do.",
     "owner": "@WireCatLabs",
     "review_after": "2027-05-13"
   }

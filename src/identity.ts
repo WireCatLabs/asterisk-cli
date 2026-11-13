@@ -6,9 +6,9 @@ import { VERSION } from "./version.js"
 export const PACKAGE = "@wirecat/asterisk-cli"
 
 export const IDENTITY: AppIdentity = {
-  command: "asterisk",
+  command: "pbx",
   appName: "asterisk-cli",
-  envPrefix: "ASTERISK",
+  envPrefix: "PBX",
   description: "Asterisk PBX calls and recordings as meetings: import the CDR, transcribe on this computer, search",
   version: VERSION,
   issues: "https://github.com/WireCatLabs/asterisk-cli/issues/new",

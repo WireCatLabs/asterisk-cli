@@ -23,7 +23,7 @@
       "required": ["command"],
       "type": "object"
     },
-    "name": "asterisk_read"
+    "name": "pbx_read"
   },
   {
     "annotations": {
@@ -42,7 +42,7 @@
       "required": [],
       "type": "object"
     },
-    "name": "asterisk_tools_search"
+    "name": "pbx_tools_search"
   },
   {
     "annotations": {
@@ -69,6 +69,6 @@
       "required": ["command"],
       "type": "object"
     },
-    "name": "asterisk_write"
+    "name": "pbx_write"
   }
 ]

@@ -16,11 +16,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-export ASTERISK_CONFIG_DIR="$work/config" ASTERISK_STATE_DIR="$work/state" ASTERISK_CACHE_DIR="$work/cache"
+export PBX_CONFIG_DIR="$work/config" PBX_STATE_DIR="$work/state" PBX_CACHE_DIR="$work/cache"
 export MESSAGING_STORE="$work/wirecat.db"
-unset ASTERISK_TOKEN
+unset PBX_TOKEN
 # Only the CLI loses the keyring: docker reads its registry login over D-Bus.
-cli=(env DBUS_SESSION_BUS_ADDRESS=disabled: node "$root/dist/bin/asterisk.js")
+cli=(env DBUS_SESSION_BUS_ADDRESS=disabled: node "$root/dist/bin/pbx.js")
 password=$(node -e 'process.stdout.write(require("node:crypto").randomBytes(18).toString("base64url"))')
 
 pnpm --dir "$root" -s build >/dev/null

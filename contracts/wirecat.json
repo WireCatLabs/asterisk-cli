@@ -1,10 +1,10 @@
 {
   "wcat_manifest": 2,
-  "name": "asterisk",
+  "name": "pbx",
   "description": "Asterisk PBX calls and recordings as meetings: import the CDR, transcribe on this computer, search",
   "docs_url": "https://github.com/WireCatLabs/asterisk-cli#readme",
   "package": "@wirecat/asterisk-cli",
-  "bin": "wcat-asterisk",
+  "bin": "wcat-pbx",
   "commands": [
     {
       "path": [
@@ -403,7 +403,7 @@
       "path": [
         "upgrade"
       ],
-      "summary": "upgrade asterisk with the package manager that installed it; --check only looks",
+      "summary": "upgrade pbx with the package manager that installed it; --check only looks",
       "effects": {
         "remote": "none",
         "local": "write"
@@ -704,7 +704,7 @@
     "storeReset": null,
     "storage": {
       "app": "asterisk-cli",
-      "env": "ASTERISK"
+      "env": "PBX"
     },
     "settings": null
   }

@@ -1,6 +1,6 @@
 {
   "command": "node",
-  "args": ["../dist/bin/asterisk.js"],
+  "args": ["../dist/bin/pbx.js"],
   "cases": [
     {
       "id": "help",
