@@ -150,6 +150,8 @@ More: [settings](docs/configuration.md).
 - A mono recording is one track with no speakers; a stereo one is two channels, `Channel 1` and `Channel 2`.
 - Transcription is local only. A recording over 256 MB and a Master.csv over 512 MB are refused.
 
+More: [what is planned](docs/roadmap.md) · [compared with other tools](docs/compare.md) · [on wirecat.dev](https://wirecat.dev/en/docs/asterisk/compare)
+
 ## Security
 
 - The store keeps callers' numbers and names, the extensions, and what was said. Treat it like the calls themselves.
@@ -176,7 +178,7 @@ More: [when something goes wrong](docs/troubleshooting.md).
 | Start | [overview](docs/index.md) · [installation](docs/installation.md) · [connect your Asterisk](docs/asterisk.md) · [use it](docs/usage.md) |
 | Reference | [all commands](docs/commands.md) · [settings and permissions](docs/configuration.md) |
 | If something is wrong | [when something goes wrong](docs/troubleshooting.md) · [security](docs/security.md) |
-| Changes | [CHANGELOG.md](CHANGELOG.md) |
+| Project | [compared with other tools](docs/compare.md) · [roadmap](docs/roadmap.md) · [CHANGELOG.md](CHANGELOG.md) |
 
 For developers: [design](docs/dev/DESIGN.md), [tests](docs/dev/TESTING.md) and the rules for agents in
 [AGENTS.md](AGENTS.md).

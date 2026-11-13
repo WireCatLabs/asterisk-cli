@@ -5,6 +5,7 @@
     "index",
     "installation",
     "asterisk",
+    "compare",
     "---Guides---",
     "usage",
     "---Reference---",
@@ -14,6 +15,7 @@
     "troubleshooting",
     "security",
     "---Project---",
-    "changelog"
+    "changelog",
+    "roadmap"
   ]
 }
