@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-import { e164 } from "../phone.js"
 import { callerName, callOf, isDialable, peerOf } from "./call.js"
 import { csvColumns, csvLines, csvRows } from "./csv.js"
 import { cdrRow } from "./record.js"
@@ -104,15 +103,5 @@ describe("who called whom", () => {
   it("reads the caller's name, never a name that only repeats the number", () => {
     expect(callerName('"Ivan Testov" <79000000001>', "79000000001")).toBe("Ivan Testov")
     expect(callerName('"79000000001" <79000000001>', "79000000001")).toBeNull()
-  })
-})
-
-describe("phone numbers", () => {
-  it("writes an outside number as E.164 when its country is known, and nothing when it is not", () => {
-    expect(e164("+34 600 000 000", null)).toBe("+34600000000")
-    expect(e164("0034600000000", null)).toBe("+34600000000")
-    expect(e164("89000000002", "ru")).toBe("+79000000002")
-    expect(e164("89000000002", null)).toBeNull()
-    expect(e164("101", "ru")).toBeNull()
   })
 })

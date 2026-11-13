@@ -26,7 +26,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc --build --force && cli-dev bundle --bin dist/bin/asterisk.js --external pg --external mysql2",
+    "build": "tsc --build --force && cli-dev bundle --bin dist/bin/asterisk.js --external pg --external mysql2 --external ssh2",
     "typecheck": "tsc --build --force --emitDeclarationOnly && tsc -p tsconfig.test.json && tsc -p tsconfig.scripts.json",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -58,10 +58,11 @@
   },
   "dependencies": {
     "@wirecat/cli-base": "0.93.0",
-    "@wirecat/cli-core": "0.647.0",
+    "@wirecat/cli-core": "0.648.0",
     "commander": "15.0.0",
     "mysql2": "3.24.6",
     "pg": "8.23.1",
+    "ssh2": "^1.17.0",
     "valibot": "1.5.0"
   },
   "devDependencies": {

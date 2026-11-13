@@ -24,6 +24,8 @@ export const runCli = async (
     stdin,
     env,
     sql,
+    sftp,
+    sftpHostKey,
     speech,
     answer,
   }: {
@@ -31,6 +33,8 @@ export const runCli = async (
     stdin?: string
     env?: NodeJS.ProcessEnv
     sql?: AsteriskEnvironment["sql"]
+    sftp?: AsteriskEnvironment["sftp"]
+    sftpHostKey?: AsteriskEnvironment["sftpHostKey"]
     speech?: SpeechEnvironment["speech"]
     answer?: (question: string) => string | null
   } = {},
@@ -42,6 +46,8 @@ export const runCli = async (
     tty: false,
     keyring,
     ...(sql ? { sql } : {}),
+    ...(sftp ? { sftp } : {}),
+    ...(sftpHostKey ? { sftpHostKey } : {}),
     ...(speech ? { speech } : {}),
     ...(env ? { env: { ...process.env, ...env } } : {}),
     ...(answer ? { answer } : {}),

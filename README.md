@@ -127,7 +127,8 @@ More: [settings](docs/configuration.md).
 ## Limits
 
 - Master.csv, MySQL or MariaDB, and PostgreSQL CDR. CEL, AMI and ARI are not read.
-- Recordings are read from a folder on this computer or a mounted one. Reading them over SFTP comes next.
+- Files are read from this computer, a mounted folder, or the PBX over SFTP. A database profile reads SFTP with a key
+  file, since the profile keeps one password.
 - One CDR row is one call record: a transferred call is two. A call's legs are not joined into one conversation.
 - A mono recording is one track with no speakers; a stereo one is two channels, `Channel 1` and `Channel 2`.
 - Transcription is local only. A recording over 256 MB and a Master.csv over 512 MB are refused.

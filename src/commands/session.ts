@@ -25,7 +25,7 @@ import {
 } from "@wirecat/cli-core/cli"
 import { Command } from "commander"
 import { configuration } from "../config.js"
-import { contextOf, openSource, readyToRead, sftpLater } from "../context.js"
+import { contextOf, openSource, readyToRead, refuseOffline, refuseUnpinnedHost } from "../context.js"
 import { IDENTITY } from "../identity.js"
 import { type SecretKind, secretKindOf, sourceOf } from "../source.js"
 
@@ -82,7 +82,8 @@ const startCommand = () =>
       const { env, profile, secrets, settings } = contextOf(this)
       refuseCommandName(profile, commandWords(rootOf(this)), CLI)
       const source = sourceOf(settings)
-      if (source.files.kind === "sftp") throw sftpLater()
+      if (source.files.kind === "sftp") refuseOffline(settings.offline)
+      await refuseUnpinnedHost(source, contextOf(this).environment, profile)
       const kind = secretKindOf(source)
       // A secret is never an argument: it would land in shell history and in the run record (WC-SECR-5).
       const password = kind ? await readSecret(ASKED[kind], secretInputOf(this)) : undefined

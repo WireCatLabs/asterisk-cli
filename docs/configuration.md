@@ -28,7 +28,10 @@ What each setting means is on [connect your Asterisk](asterisk.md).
 | `cdr_timezone` | this computer's | the zone of the CDR's times |
 | `phone_region` | — | the country of numbers written without `+`, such as `ru` |
 | `extension_pattern` | `^\d{2,5}$` | which numbers are internal extensions |
-| `files_from` | `local` | `local`; `sftp` comes in a later release |
+| `files_from` | `local` | `local`, or `sftp` to read `Master.csv` and the recordings on the PBX |
+| `sftp_host`, `sftp_port`, `sftp_user` | —, 22, — | the PBX's SSH server, for `files_from sftp` |
+| `sftp_key_path` | — | a private key file; without it `session start` asks the SFTP password |
+| `sftp_host_key` | — | the server's key fingerprint, `SHA256:…`, that you checked; nothing connects until it is set |
 
 ## Permissions
 
