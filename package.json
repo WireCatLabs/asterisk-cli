@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@wirecat/cli-base": "0.98.0",
-    "@wirecat/cli-core": "0.648.0",
+    "@wirecat/cli-core": "0.656.0",
     "commander": "15.0.0",
     "mysql2": "3.24.6",
     "pg": "8.23.1",
