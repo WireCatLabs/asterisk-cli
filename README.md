@@ -149,7 +149,7 @@ More: [settings](docs/configuration.md).
 - A mono recording is one track with no speakers; a stereo one is two channels, `Channel 1` and `Channel 2`.
 - Transcription is local only. A recording over 256 MB and a Master.csv over 512 MB are refused.
 
-More: [what is planned](docs/roadmap.md) · [compared with other tools](docs/compare.md) · [on wirecat.dev](https://wirecat.dev/en/docs/asterisk/compare)
+More: [what is planned](docs/roadmap.md) · [compared with other tools](docs/compare.md) · [on wirecat.dev](https://wirecat.dev/en/docs/pbx/compare)
 
 ## Security
 

@@ -3,7 +3,7 @@
   "name": "dev.wirecat/asterisk-cli",
   "title": "WireCat asterisk",
   "description": "asterisk for agents over MCP. Set up a profile with the asterisk CLI first.",
-  "websiteUrl": "https://wirecat.dev/en/docs/asterisk",
+  "websiteUrl": "https://wirecat.dev/en/docs/pbx",
   "repository": {
     "url": "https://github.com/WireCatLabs/asterisk-cli",
     "source": "github"

@@ -21,7 +21,7 @@ export const IDENTITY: AppIdentity = {
 // else loads; src/wcat.ts adds the permission keys.
 export const DESKTOP: ManifestIdentity = {
   ...IDENTITY,
-  docs: "https://github.com/WireCatLabs/asterisk-cli#readme",
+  docs: "https://wirecat.dev/en/docs/pbx",
   hosts: [],
   userHosts: "the Asterisk CDR database or SFTP server you set up",
   tagline: "Asterisk calls and recordings, searchable",
