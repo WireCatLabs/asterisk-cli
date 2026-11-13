@@ -1,8 +1,25 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/WireCatLabs/asterisk-cli/main/docs/images/social-preview.png" alt="Asterisk PBX calls and recordings for your AI agent" width="100%">
+</p>
+
 # asterisk — Asterisk PBX calls for AI agents
 
+**Asterisk PBX calls and recordings for your AI agent.** Ask who called about the invoice, what the client was
+promised, and which calls nobody answered, from Claude Code, Codex or any MCP client.
+
 Your company's phone calls from an Asterisk PBX (FreePBX, Issabel, VitalPBX or plain Asterisk), with their recordings
-transcribed on your computer, searchable offline, and ready for Claude Code, Codex, Gemini CLI or any agent — within
-limits you set.
+transcribed on your computer, searchable offline, and ready for any agent, within limits you set.
+
+[Documentation](docs/index.md) · [Connect your Asterisk](docs/asterisk.md) · [Commands](docs/commands.md) ·
+[WireCat](https://wirecat.dev)
+
+[![npm](https://img.shields.io/npm/v/@wirecat/asterisk-cli)](https://www.npmjs.com/package/@wirecat/asterisk-cli)
+[![CI](https://github.com/WireCatLabs/asterisk-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/WireCatLabs/asterisk-cli/actions/workflows/ci.yml)
+[![Node](https://img.shields.io/node/v/@wirecat/asterisk-cli)](https://nodejs.org/)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
+<!-- Demo slot: a 30–45 s recording of the exchange below goes here, as an absolute
+     raw.githubusercontent.com URL so it also renders on npmjs.com. Invented calls only. -->
 
 `asterisk` reads the PBX's call records (CDR) from `Master.csv` or from the CDR database, and copies them into the
 local [WireCat](https://wirecat.dev) store: one meeting per call record, with the extension and the outside caller as
@@ -175,6 +192,12 @@ pnpm release:check                     # every check CI runs
 ```
 
 `examples/` holds a made-up Master.csv and two short recordings, for trying the tool without a PBX.
+
+## Part of WireCat
+
+`asterisk` is one of the [WireCat](https://wirecat.dev) tools. They share one local store, so a caller found in
+`asterisk` is the same person in Telegram, MAX, WhatsApp, mail and the CRM, and `memo` answers about them across all
+of it. The PBX sibling is beeline-cli, for Beeline's cloud PBX.
 
 ## Contributing and license
 
