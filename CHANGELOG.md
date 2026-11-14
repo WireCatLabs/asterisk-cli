@@ -45,6 +45,10 @@ Notable changes to `@wirecat/asterisk-cli`. One section per version, newest firs
   read (a byte-order mark, broken JSON, a folder in its place, an older `setup` shape) made every WireCat tool
   read-only and refused `sync`. Now only the owner's own "read only" answer limits a tool, and even then a sync runs:
   it only reads the service into the local store (cli-core 0.656.0).
+- The guide starts with what you get from your calls and the work an agent can take over: the overview says what
+  `pbx` does and does not do yet, [install and connect](docs/installation.md) is one page from installation to
+  the first sync, in WireCat Desktop or a terminal, and [use it](docs/usage.md) is built around a team's daily
+  tasks, with requests to copy and a schedule.
 
 ## 0.3.0 — 13.11.2026
 
