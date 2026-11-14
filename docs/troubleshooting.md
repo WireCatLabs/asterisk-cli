@@ -15,7 +15,7 @@ for a support request.
 | "N call records could not be read" | Those rows have no start time; the rest were imported. |
 | `db.refused` | The database refused the user or the password. Run `session start` again. |
 | `db.no-table`, `db.no-select` | Set `db_table`, or grant the user `SELECT` on the table. |
-| `network_error` from the database | The server is not reachable from here. Use an SSH tunnel, as [connect your Asterisk](asterisk.md#a-cdr-database) shows. |
+| `network_error` from the database | The server is not reachable from here. Use an SSH tunnel, as [connect your Asterisk](installation.md#a-cdr-database) shows. |
 | A call has no recording | Check `recordings_path`, then `recordings_pattern`. A file changed in the last two minutes is left for the next sync. |
 | `model.not-downloaded` | Run `pbx models download gigaam-v3`, or the model the message names. |
 | A WAV or GSM call fails to transcribe | Install `ffmpeg`. |

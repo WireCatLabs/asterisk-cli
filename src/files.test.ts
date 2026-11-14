@@ -49,19 +49,23 @@ it("finds FreePBX's recordingfile in the date folder, then in the folder itself,
   expect(await find(row("1761999999.99", "missing.wav"))).toBeNull()
 })
 
-it("a folder this user may not read is a permission error that names no path", async () => {
-  const root = folder()
-  const locked = join(root, "79000000001")
-  mkdirSync(locked)
-  chmodSync(locked, 0o000)
-  try {
-    const listed = localFiles().list(locked)
-    await expect(listed).rejects.toMatchObject({ code: "permission_error", details: { reason: "file.denied" } })
-    await expect(listed).rejects.not.toThrow("79000000001")
-  } finally {
-    chmodSync(locked, 0o700)
-  }
-})
+// Windows ignores POSIX modes, so chmod cannot lock the folder there.
+it.skipIf(process.platform === "win32")(
+  "a folder this user may not read is a permission error that names no path",
+  async () => {
+    const root = folder()
+    const locked = join(root, "79000000001")
+    mkdirSync(locked)
+    chmodSync(locked, 0o000)
+    try {
+      const listed = localFiles().list(locked)
+      await expect(listed).rejects.toMatchObject({ code: "permission_error", details: { reason: "file.denied" } })
+      await expect(listed).rejects.not.toThrow("79000000001")
+    } finally {
+      chmodSync(locked, 0o700)
+    }
+  },
+)
 
 it("never takes a longer call id for the call's own, nor a recordingfile outside the folder", async () => {
   const root = folder()
