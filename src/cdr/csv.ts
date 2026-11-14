@@ -52,59 +52,102 @@ export const csvColumns = (first: readonly string[]): string[] => {
   return [...BASE, ...columns]
 }
 
-/** RFC 4180 rows, as `cdr_csv` writes them: every field quoted, a quote inside doubled. */
-export function* csvLines(text: string): Generator<string[]> {
+/**
+ * RFC 4180 rows, as `cdr_csv` writes them: every field quoted, a quote inside doubled. Fed text piece by piece, so a
+ * file of any size is read without holding it whole; a quote, a `\r\n` or a quoted newline may fall between pieces.
+ */
+export const csvParser = () => {
   let row: string[] = []
   let field = ""
   let quoted = false
-  for (let at = 0; at < text.length; at++) {
-    const char = text[at]
-    if (quoted) {
-      if (char === '"' && text[at + 1] === '"') {
-        field += '"'
-        at++
-      } else if (char === '"') quoted = false
-      else field += char
-    } else if (char === '"') quoted = true
-    else if (char === ",") {
-      row.push(field)
-      field = ""
-    } else if (char === "\n" || char === "\r") {
-      if (char === "\r" && text[at + 1] === "\n") at++
-      row.push(field)
-      if (row.length > 1 || row[0] !== "") yield row
-      row = []
-      field = ""
-    } else field += char
+  let quoteSeen = false
+  let afterReturn = false
+  const finished = (rows: string[][]) => {
+    row.push(field)
+    if (row.length > 1 || row[0] !== "") rows.push(row)
+    row = []
+    field = ""
   }
-  row.push(field)
-  if (row.length > 1 || row[0] !== "") yield row
+  return {
+    push: (text: string): string[][] => {
+      const rows: string[][] = []
+      for (const char of text) {
+        if (afterReturn) {
+          afterReturn = false
+          if (char === "\n") continue
+        }
+        if (quoteSeen) {
+          quoteSeen = false
+          if (char === '"') {
+            field += '"'
+            continue
+          }
+          quoted = false
+        }
+        if (quoted) {
+          if (char === '"') quoteSeen = true
+          else field += char
+        } else if (char === '"') quoted = true
+        else if (char === ",") {
+          row.push(field)
+          field = ""
+        } else if (char === "\n" || char === "\r") {
+          afterReturn = char === "\r"
+          finished(rows)
+        } else field += char
+      }
+      return rows
+    },
+    end: (): string[][] => {
+      const rows: string[][] = []
+      finished(rows)
+      return rows
+    },
+  }
+}
+
+export function* csvLines(text: string): Generator<string[]> {
+  const parser = csvParser()
+  yield* parser.push(text)
+  yield* parser.end()
 }
 
 /**
- * Every row of a Master.csv, keyed by column name. Without `named`, each line's own count names its columns: turning
- * `loguniqueid` or `newcdrcolumns` on later makes the newer lines longer than the older ones. A line that fits no
- * layout is skipped and counted; a file where no line fits is refused, so a wrong guess is never silent.
+ * Names each line's fields. Without `named`, each line's own count names its columns: turning `loguniqueid` or
+ * `newcdrcolumns` on later makes the newer lines longer than the older ones. A line that fits no layout is skipped
+ * and counted; a file where no line fits is refused at `end`, so a wrong guess is never silent.
  */
-export const csvRows = (text: string, named?: readonly string[]): { rows: RawRow[]; skipped: number } => {
-  const rows: RawRow[] = []
+export const csvTable = (named?: readonly string[]) => {
+  let fitted = 0
   let skipped = 0
   let refusal: unknown
-  for (const line of csvLines(text)) {
-    let columns: readonly string[]
-    try {
-      columns = named ?? csvColumns(line)
-    } catch (error) {
-      refusal ??= error
-      skipped++
-      continue
-    }
-    if (line.length !== columns.length) {
-      skipped++
-      continue
-    }
-    rows.push(Object.fromEntries(columns.map((name, index) => [name, line[index] ?? null])))
+  return {
+    row: (line: readonly string[]): RawRow | null => {
+      let columns: readonly string[]
+      try {
+        columns = named ?? csvColumns(line)
+      } catch (error) {
+        refusal ??= error
+        skipped++
+        return null
+      }
+      if (line.length !== columns.length) {
+        skipped++
+        return null
+      }
+      fitted++
+      return Object.fromEntries(columns.map((name, index) => [name, line[index] ?? null]))
+    },
+    end: () => {
+      if (fitted === 0 && refusal) throw refusal
+      return { rows: fitted, skipped }
+    },
   }
-  if (rows.length === 0 && refusal) throw refusal
-  return { rows, skipped }
+}
+
+/** Every row of a Master.csv held in memory, keyed by column name. */
+export const csvRows = (text: string, named?: readonly string[]): { rows: RawRow[]; skipped: number } => {
+  const table = csvTable(named)
+  const rows = [...csvLines(text)].map(table.row).filter((row): row is RawRow => row !== null)
+  return { rows, skipped: table.end().skipped }
 }

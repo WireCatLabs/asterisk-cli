@@ -25,6 +25,7 @@ What each setting means is on [install and connect](installation.md).
 | `db_tls` | `false` | an encrypted connection with a checked certificate |
 | `recordings_path` | — | the folder of the recordings |
 | `recordings_pattern` | FreePBX's, then `*{uniqueid}*` | how a recording's name holds the call |
+| `recordings_channels` | — | who speaks on each channel of a stereo recording: `caller,employee` or `employee,caller` |
 | `cdr_timezone` | this computer's | the zone of the CDR's times |
 | `phone_region` | — | the country of numbers written without `+`, such as `ru`, or several: `es,ru` |
 | `extension_pattern` | `^\d{2,5}$` | which numbers are internal extensions |

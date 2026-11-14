@@ -4,6 +4,7 @@ import type { Pcm } from "@wirecat/cli-core/speech"
 import { beforeEach, expect, it } from "vitest"
 import type { Speech } from "./commands/transcribe.js"
 import { asteriskFolder, configure, freshFolders, runCli } from "./testing/harness.js"
+import { largestRecording } from "./transcribe-calls.js"
 
 const EXAMPLES = new URL("../examples/", import.meta.url)
 const IN_CALL = "monitor/2026/10/31/in-74950000000-79000000001-20261031-120000-1761901200.11.wav"
@@ -92,4 +93,52 @@ it("stops at --max-meetings, and --replace transcribes again what has a transcri
   const replaced = await transcribe(["--replace"], { speech: speech() })
   expect(replaced.code, replaced.err).toBe(0)
   expect(replaced.json().item).toMatchObject({ transcribed: 2 })
+})
+
+const stereo = (): Speech => {
+  let heard = 0
+  return speech({
+    decodeChannels: async () => ({ channels: [mono(), mono()], mixed: false }),
+    recognizeLocalPieces: async () =>
+      heard++ % 2 === 0
+        ? [{ start: 0, end: 2, text: "Добрый день, компания" }]
+        : [{ start: 2.5, end: 4, text: "Здравствуйте" }],
+  })
+}
+
+const speakersOf = async (title: string) => {
+  const list = await runCli(["office", "meetings", "list", "--json"])
+  const call = (list.json().items as { id: string; title: string }[]).find((one) => one.title === title)
+  const shown = await runCli(["office", "meetings", "transcript", call?.id ?? "", "--json"])
+  expect(shown.code, shown.err).toBe(0)
+  const [transcript] = shown.json().items as { lines: { speaker: string | null; text: string }[] }[]
+  return (transcript?.lines ?? []).map(({ speaker, text }) => `${speaker}: ${text}`)
+}
+
+it("names a stereo call's channels by recordings_channels: the caller by name and number, the employee by extension", async () => {
+  await configure({ recordings_channels: "employee,caller" })
+  const done = await transcribe([], { speech: stereo() })
+  expect(done.code, done.err).toBe(0)
+  expect(await speakersOf("+79000000001 → 101")).toEqual([
+    "101 Oleg Operatorov: Добрый день, компания",
+    "Ivan Testov +79000000001: Здравствуйте",
+  ])
+})
+
+it("keeps Channel 1 and Channel 2 without recordings_channels, and refuses another value", async () => {
+  const done = await transcribe([], { speech: stereo() })
+  expect(done.code, done.err).toBe(0)
+  expect(await speakersOf("+79000000001 → 101")).toEqual([
+    "Channel 1: Добрый день, компания",
+    "Channel 2: Здравствуйте",
+  ])
+  const set = await runCli(["office", "config", "set", "recordings_channels", "left,right", "--json"])
+  expect(set.code).not.toBe(0)
+  expect(set.err).toContain("caller,employee or employee,caller")
+})
+
+it("reads what ffmpeg decodes up to 2 GB, since its output stops at an hour, and MP3, Ogg and FLAC up to 256 MB", () => {
+  expect(largestRecording("in-1761901200.11.WAV")).toBe(2 * 1024 ** 3)
+  expect(largestRecording("1761908400.31.gsm")).toBe(2 * 1024 ** 3)
+  expect(largestRecording("external-1761904800.21.mp3")).toBe(256 * 1024 ** 2)
 })

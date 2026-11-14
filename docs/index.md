@@ -1,4 +1,4 @@
-# Asterisk calls for your AI agent
+# Asterisk
 
 A company's phone calls hold what clients asked for and what employees promised, but on an Asterisk phone system
 they sit in a call log and a folder of recordings that no AI agent can read. `pbx`, the WireCat command-line tool for
@@ -41,10 +41,21 @@ all WireCat tools keep their data in one local store.
 
 ## What it does not do yet
 
-- There is no ready report of call statistics: an agent counts them from the calls.
-- `pbx` writes no summary of its own. Your agent reads the transcript and writes one.
-- A recording is linked by its file path. There is no link that plays it in a browser.
-- Recognition quality depends on the recordings and the model; a noisy line or a mixed-up language gives weaker text.
+- **Call statistics.** You can get the number of calls per employee, the missed calls and the talk time today: your
+  agent counts them from the calls, as in [a day of calls by employee](usage.md#ask-your-agent). `pbx` has no ready
+  report of its own yet.
+- **Search of what was said.** You can find a call by its words today: Memo searches the transcripts together with
+  your chats and mail. `pbx` itself does not search the text yet.
+- **Marks on calls by their words.** Your agent can read the transcripts and list the calls where a word was said,
+  such as every call about a refund. `pbx` does not mark those calls by itself yet.
+- **Summaries.** Your agent reads a transcript and writes the summary. `pbx` writes none of its own.
+- **Who said what.** Every recording is turned into text. A stereo recording in MP3, Ogg or FLAC names the caller
+  and the employee on each line when you set [`recordings_channels`](installation.md#transcribe). A mono recording,
+  and a WAV or GSM one, gives the text without names.
+- **Playing a recording.** A call links its recording by the file's path, and you open the file in a player. There
+  is no link that plays it in a browser.
+- **Recognition quality.** Speech is recognized on this computer, and the result depends on the recording and the
+  model. A noisy line or a call in two languages gives weaker text.
 
 [Compared with other tools](compare.md) puts these next to FreePBX's own tools, Frogman and asterisk-ai-call-notes.
 

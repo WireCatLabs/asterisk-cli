@@ -142,11 +142,25 @@ More: [settings](docs/configuration.md).
 
 ## Limits
 
-- Master.csv, MySQL or MariaDB, and PostgreSQL CDR. CEL, AMI and ARI are not read.
-- Files are read from this computer, a mounted folder, or the PBX over SFTP. A database profile reads SFTP with a key
-  file, since the profile keeps one password.
-- A mono recording is one track with no speakers; a stereo one is two channels, `Channel 1` and `Channel 2`.
-- Transcription is local only. A recording over 256 MB and a Master.csv over 512 MB are refused.
+- **Call records.** `pbx` reads the call records (CDR) from Master.csv, from MySQL or MariaDB, and from PostgreSQL.
+  These are the three places where Asterisk most often keeps its call history. `pbx` does not use CEL, AMI or ARI:
+  CEL is a log of each step inside a call, and AMI and ARI are interfaces that control calls while they happen. Call
+  history does not need them.
+- **Where the files are.** `pbx` reads Master.csv and the recordings on this computer, in a mounted folder, or on the
+  phone system over SFTP (secure file access through SSH, the remote login service of the phone system). A profile
+  keeps one saved password, so a profile that reads a database connects to SFTP with a key file. `pbx` does not open
+  an SSH tunnel (a secure connection) to a database that listens only on the phone system: open it yourself, as
+  [install and connect](docs/installation.md#a-cdr-database) shows. A second saved password and a built-in tunnel
+  are planned.
+- **Who said what.** Every recording is turned into text. A stereo recording in the sound formats MP3, Ogg or FLAC
+  keeps its two channels apart: set `recordings_channels`, and each line names the caller or the employee. Without
+  that setting, the lines say `Channel 1` and `Channel 2`. A mono recording gives the text without names, and so
+  does a WAV or GSM recording, because ffmpeg mixes its channels into one.
+- **Size.** Master.csv on this computer or in a mounted folder can be of any size: `pbx` reads it line by line. Over
+  SFTP it can be up to 512 MB, because it is read into memory whole. A recording can be up to one hour long, and up
+  to 2 GB for WAV, GSM and M4A or 256 MB for MP3, Ogg and FLAC.
+- **Speech recognition.** It runs on this computer only. A cloud speech-to-text service is planned, as an option you
+  turn on.
 
 More: [what is planned](docs/roadmap.md) · [compared with other tools](docs/compare.md) · [on wirecat.dev](https://wirecat.dev/en/docs/pbx/compare)
 

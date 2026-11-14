@@ -16,11 +16,16 @@ the command line or MCP. See [install and connect](installation.md).
 
 - Find missed calls and calls in one direction with a filter on `meetings list`.
 - Call stats: calls per extension and per hour, and the share of missed calls.
+- Search the text of the calls, and mark calls by the words said in them.
+- Keep a database password and an SFTP password in one profile.
+- Open the SSH tunnel (a secure connection) to a database that listens only on the PBX, so you do not run `ssh -L` yourself.
+- Read a `Master.csv` of any size over SFTP, as from a local or mounted folder.
+- Speech recognition by a cloud service, as an option you turn on.
 - Read Asterisk's CEL log, where transfers and queues are exact.
 
 ## What it will not do
 
 `pbx` stays read-only against the PBX. It will not change the PBX settings, place or end calls, or delete a
-recording. Recordings are not sent to a cloud service for transcription.
+recording. A recording is never sent to a cloud service unless you turn that option on.
 
 What changed in each released version is in the [changelog](../CHANGELOG.md).

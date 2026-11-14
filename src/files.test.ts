@@ -2,6 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "no
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { expect, it } from "vitest"
+import { cdrReader } from "./cdr/reader.js"
 import { cdrRow } from "./cdr/record.js"
 import { localFiles } from "./files.js"
 import { DEFAULT_PATTERNS, recordingFinder } from "./recordings.js"
@@ -31,6 +32,61 @@ it("local files answer nothing for a missing file, folder or a folder given as a
   await expect(refused).rejects.toMatchObject({ details: { reason: "file.too-large" } })
   await expect(refused).rejects.not.toThrow(root)
   await files.close()
+})
+
+it("reads a Master.csv larger than one read piece, with names and newlines inside fields, holding only new rows", async () => {
+  const root = folder()
+  const line = (n: number) =>
+    [
+      "",
+      `7900${String(n).padStart(7, "0")}`,
+      "74950000000",
+      "from-trunk",
+      `"Иван Тестов ${n}" <7900${String(n).padStart(7, "0")}>`,
+      "PJSIP/trunk-1",
+      "PJSIP/101-2",
+      "Dial\r\nsecond line",
+      "PJSIP/101,30,tT",
+      `2026-10-${n < 10_000 ? "01" : "31"} 12:00:00`,
+      "",
+      "",
+      "185",
+      "180",
+      "ANSWERED",
+      "DOCUMENTATION",
+      `1761901200.${n}`,
+    ]
+      .map((field) => `"${field.replaceAll('"', '""')}"`)
+      .join(",")
+  const path = join(root, "Master.csv")
+  writeFileSync(path, `${Array.from({ length: 20_000 }, (_, n) => line(n)).join("\r\n")}\n"broken"\n`)
+  const reader = await cdrReader(
+    {
+      cdr: { kind: "csv", path, columns: null },
+      recordings: null,
+      recordingSides: null,
+      files: { kind: "local" },
+      zone: "UTC",
+      phoneRegions: [],
+      extension: /^\d{2,5}$/,
+    },
+    localFiles(),
+    {},
+  )
+  const read = await reader.rows(Date.parse("2026-10-15T00:00:00Z"))
+  expect(read.skipped).toBe(1)
+  expect(read.rows).toHaveLength(10_000)
+  expect(read.rows.at(-1)).toMatchObject({ clid: '"Иван Тестов 19999" <79000019999>', uniqueid: "1761901200.19999" })
+  expect(read.rows[0]?.lastapp).toBe("Dial\r\nsecond line")
+})
+
+it("a Master.csv that is not there is not_found, naming no path", async () => {
+  const root = folder()
+  const pieces = async () => {
+    for await (const _ of localFiles().stream(join(root, "79000000001", "Master.csv"))) return
+  }
+  await expect(pieces()).rejects.toMatchObject({ code: "not_found", details: { reason: "file.missing" } })
+  await expect(pieces()).rejects.not.toThrow("79000000001")
 })
 
 it("finds FreePBX's recordingfile in the date folder, then in the folder itself, else by the uniqueid", async () => {

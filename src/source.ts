@@ -13,10 +13,15 @@ export interface SftpPlace {
   hostKey: string | null
 }
 
+/** Who speaks on the first and the second channel of a stereo recording. */
+export type RecordingSide = "caller" | "employee"
+
 /** One profile's Asterisk: where its call records and recordings are, and how to read their numbers and times. */
 export interface SourceConfig {
   cdr: { kind: "csv"; path: string; columns: string[] | null } | SqlSource
   recordings: { root: string; patterns: string[] } | null
+  /** Set by the owner: which side the dialplan records on which channel, so a transcript names who said what. */
+  recordingSides: RecordingSide[] | null
   files: { kind: "local" } | ({ kind: "sftp" } & SftpPlace)
   zone: string
   phoneRegions: string[]
@@ -115,6 +120,7 @@ export const sourceOf = (settings: Settings): SourceConfig => {
             : DEFAULT_PATTERNS,
         }
       : null,
+    recordingSides: (text(values, "recordings_channels")?.split(",") as RecordingSide[] | undefined) ?? null,
     files:
       filesFrom === "sftp"
         ? {

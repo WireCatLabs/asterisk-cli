@@ -142,6 +142,7 @@ const meetingOf = (call: PhoneCall, regions: readonly string[], names: ReadonlyM
       outcome: call.outcome,
       disposition: first.row.disposition,
       dialed: call.dialed,
+      client: call.client ? (e164(call.client.number, regions) ?? call.client.number) : null,
       placedBy: call.placedBy,
       answeredBy: call.answeredBy,
       rang: call.rang,

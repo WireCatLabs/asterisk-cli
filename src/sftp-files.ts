@@ -6,6 +6,12 @@ import type { FileAccess, FileEntry } from "./files.js"
 import { IDENTITY } from "./identity.js"
 import type { SftpPlace } from "./source.js"
 
+/**
+ * cli-core's SFTP client reads a file whole, with no stream yet, so `stream` holds the whole file and stops at this
+ * size. Larger than years of a busy office's Master.csv.
+ */
+export const LARGEST_SFTP_STREAM = 512 * 1024 * 1024
+
 export type OpenSftp = (options: SftpOptions) => Promise<SftpClient>
 
 const missing = (error: unknown) => isCliError(error) && error.details.reason === "file.not-found"
@@ -86,6 +92,9 @@ export const sftpFiles = async (
       }
     },
     read: (path, maxBytes) => client.readFile(path, { maxBytes }),
+    stream: async function* (path) {
+      yield await client.readFile(path, { maxBytes: LARGEST_SFTP_STREAM })
+    },
     close: () => client.close(),
   }
 }
