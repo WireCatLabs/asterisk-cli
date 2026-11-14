@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "dev.wirecat/asterisk-cli",
-  "title": "WireCat asterisk",
-  "description": "asterisk for agents over MCP. Set up a profile with the asterisk CLI first.",
+  "title": "WireCat pbx",
+  "description": "Asterisk calls for agents over MCP. Set up a profile with the pbx CLI first.",
   "websiteUrl": "https://wirecat.dev/en/docs/pbx",
   "repository": {
     "url": "https://github.com/WireCatLabs/asterisk-cli",

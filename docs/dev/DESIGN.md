@@ -35,7 +35,7 @@ Owner, 2026-11-12.
 - **Sources:** Master.csv, MySQL or MariaDB, PostgreSQL, and SFTP for remote files. The SFTP client belongs in
   cli-core, with retries, timeouts and tracing, for every CLI (`@wirecat/cli-core/sftp`, 0.648.0); pbx reads
   through it from 0.2.0. The server's key is pinned by the owner (`sftp_host_key`) before any credential is sent.
-- **Names:** the command is `pbx`, the package `@wirecat/asterisk-cli`; `wcat-asterisk` is the same program.
+- **Names:** the command is `pbx`, the package `@wirecat/asterisk-cli`; `wcat-pbx` is the same program.
 - **Release:** a repository, merged pull requests and a release to npm; WireCat Desktop gets the tool next.
 
 ## Decisions

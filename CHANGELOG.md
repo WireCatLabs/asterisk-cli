@@ -18,6 +18,12 @@ Notable changes to `@wirecat/asterisk-cli`. One section per version, newest firs
   the wait before the first answer (`waitMs`), the talk time (`talkMs`) and every leg. The one-row meetings of 0.3.0 and older are marked
   deleted once a sync reads their rows again into a call; `meetings sync --since-time <first call>` reads them all.
   A transcript made of a row meeting is made again by `meetings transcribe`.
+- An employee's identity is now `extension:<profile>/<number>` (was `extension:<number>`), so extension 101 of one
+  profile and 101 of another are two people, not one. A script that looked people up by `extension:101` adds the
+  profile: `extension:office/101`.
+- A ring group's or queue's member who answered is named by the channel that reached them (`Local/101@…`), not by the
+  group's number (`600`), and employees are named from the caller ID of the calls they make.
+- `meetings show --json` answers `{ "item": { … } }`; 0.3.0 wrapped the meeting twice, as `item.item`.
 - **Built on cli-core 0.656.0** (was 0.648.0). See the
   [cli-core changelog](https://github.com/WireCatLabs/cli-core/blob/main/CHANGELOG.md).
 
@@ -29,12 +35,8 @@ Notable changes to `@wirecat/asterisk-cli`. One section per version, newest firs
   caller's participant now carries its phone number.
 - A recording with nothing but its header, which MixMonitor leaves when nobody talked, is no longer linked or sent to
   transcription.
-- A ring group's or queue's member who answered is named by the channel that reached them, not by the group's number,
-  and employees are named from the caller ID of the calls they make.
 - A build starts from an empty `dist/`, so a renamed file no longer ships: 0.3.0 carried an unused
   `dist/bin/asterisk.js`.
-- Extension 101 of one profile and extension 101 of another are two people: an employee's identity is now
-  `extension:<profile>/<number>`, so two offices' staff no longer merge into one person.
 - **Sync runs on a fresh install.** A shared WireCat config (`~/.config/WireCat/config.json`) that could not be
   read (a byte-order mark, broken JSON, a folder in its place, an older `setup` shape) made every WireCat tool
   read-only and refused `sync`. Now only the owner's own "read only" answer limits a tool, and even then a sync runs:

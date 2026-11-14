@@ -100,11 +100,7 @@ it("joins the two legs of a transferred call into one meeting, with both employe
   expect(legs.map(({ title }) => title)).toEqual(["+79000000004 → 103"])
   expect(await externalIds()).toContain("1761912000.41")
   const shown = JSON.parse(await details(legs[0]?.id as string))
-  expect(shown.item.item.participants.map(({ role }: { role: string }) => role)).toEqual([
-    "client",
-    "manager",
-    "manager",
-  ])
+  expect(shown.item.participants.map(({ role }: { role: string }) => role)).toEqual(["client", "manager", "manager"])
 })
 
 it("links a call's recording by its uniqueid in the date folder, and a missed call has none", async () => {
