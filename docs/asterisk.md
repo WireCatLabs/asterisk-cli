@@ -145,6 +145,10 @@ missing file is not.
 - `phone_region` is the country of numbers written without `+`, such as `ru` for `89161234567`. Numbers are then kept
   as `+79161234567`, the form the other WireCat tools use, so the caller is the same person in calls and chats.
   Without it, only numbers written with `+` or `00` are made international.
+- An office that takes calls from several countries lists them: `es,ru`. A number is read in the country it fits.
+  A number that fits two of them, as `612345678` fits Spain, Germany and France, is kept as written and linked to
+  no one, since a wrong country would join a stranger's contact; `meetings sync` says how many callers that left.
+  List only the countries your phone lines serve: a call from anywhere else comes with its `+` or `00`.
 - `extension_pattern` is a regular expression for your internal extensions; the default, `^\d{2,5}$`, takes numbers of
   two to five digits. A side of the call is internal when its channel (`PJSIP/101-…`) or its number matches.
 - A call is **incoming** when an outside number reached an extension or came in through a `from-trunk`, `from-pstn`

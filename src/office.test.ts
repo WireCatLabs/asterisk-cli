@@ -206,3 +206,17 @@ it("extension 101 of two PBXs is two people, not one", async () => {
   expect(branch101).toBeDefined()
   expect(office101).not.toBe(branch101)
 })
+
+it("reads a number in the one listed country it fits, and keeps one that fits two as written", async () => {
+  const root = asteriskFolder({ "Master.csv": OFFICE })
+  await configure({ cdr_csv_path: join(root, "Master.csv"), cdr_timezone: ZONE, phone_region: "es,ru" })
+  expect((await sync()).code).toBe(0)
+  expect((await shown("+79161234567 → 101")).participants[0]).toMatchObject({ role: "client" })
+
+  await configure({ phone_region: "ru,de" })
+  const synced = await sync()
+  expect(synced.code, synced.err).toBe(0)
+  expect(synced.err).toMatch(/callers' numbers fit more than one of phone_region's countries/)
+  const list = await runCli(["office", "meetings", "list", "--limit", "50", "--json"])
+  expect((list.json().items as { title: string }[]).map(({ title }) => title)).toContain("79161234567 → 101")
+})

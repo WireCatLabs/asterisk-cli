@@ -26,7 +26,7 @@ What each setting means is on [connect your Asterisk](asterisk.md).
 | `recordings_path` | — | the folder of the recordings |
 | `recordings_pattern` | FreePBX's, then `*{uniqueid}*` | how a recording's name holds the call |
 | `cdr_timezone` | this computer's | the zone of the CDR's times |
-| `phone_region` | — | the country of numbers written without `+`, such as `ru` |
+| `phone_region` | — | the country of numbers written without `+`, such as `ru`, or several: `es,ru` |
 | `extension_pattern` | `^\d{2,5}$` | which numbers are internal extensions |
 | `files_from` | `local` | `local`, or `sftp` to read `Master.csv` and the recordings on the PBX |
 | `sftp_host`, `sftp_port`, `sftp_user` | —, 22, — | the PBX's SSH server, for `files_from sftp` |
