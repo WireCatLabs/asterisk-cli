@@ -4,6 +4,12 @@ const SHARED_MCP =
 const LONG_RUNNING = `starts an HTTP server or a background process that runs until stopped; ${SHARED_MCP}`
 
 export const UNTESTED: { command: string; option?: string; reason: string }[] = [
+  ...["meetings list", "meetings show"].map((command) => ({
+    command,
+    option: "--backend",
+    reason:
+      "cli-core 0.660.0 src/store/meetings-read-through.test.ts drives archive, server and both on a shared source",
+  })),
   {
     command: "",
     option: "--help-all",

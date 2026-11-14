@@ -113,7 +113,7 @@ stored meetings and their records
 
 ### `pbx meetings list`
 
-stored meetings, newest first
+meetings, newest first: the service's and the stored ones, kept in the store
 
 ```sh
 pbx meetings list [query] [options]
@@ -125,20 +125,19 @@ pbx meetings list [query] [options]
 
 | Option | What it does |
 |---|---|
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
-| `--limit <n>` | meetings per page. Default: `100`. |
-| `--page <n>` | page number. Default: `1`. |
+| `--backend <archive\|server\|both>` | where to read: the store (archive), the service (server), or both, kept in the store (default: both). |
+| `--limit <n>` | meetings per page; the profile's defaults.limit when absent. |
+| `--page <n>` | which page, starting at 1. |
 
-**Returns:** meeting — ref, id, provider, account, title, url, started_at, ended_at, and 8 more; every field: pbx commands info meetings list
+**Returns:** meeting — ref, id, provider_id, provider, account, title, url, started_at, and 11 more; every field: pbx commands info meetings list
 
 **Next usually:** `pbx meetings show <meeting>`, `pbx meetings transcript <meeting>`, `pbx meetings summary <meeting>`
 
-**Example:** `pbx office meetings list --limit 20 --json`
+**Example:** `pbx office meetings list --limit 50 --json`
 
 ### `pbx meetings show`
 
-show a stored meeting
+show a meeting, read again from the service with its people, transcript and documents
 
 ```sh
 pbx meetings show <meeting> [options]
@@ -146,14 +145,13 @@ pbx meetings show <meeting> [options]
 
 | Argument | | What it is |
 |---|---|---|
-| `meeting` | required | stored meeting id. |
+| `meeting` | required | the stored meeting's number, its meeting: ref, or the service's id (provider_id). |
 
 | Option | What it does |
 |---|---|
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
+| `--backend <archive\|server\|both>` | where to read: the store (archive), the service (server), or both, kept in the store (default: both). |
 
-**Returns:** meeting details — ref, id, provider, account, title, url, started_at, ended_at, and 17 more; every field: pbx commands info meetings show
+**Returns:** meeting details — ref, id, provider_id, provider, account, title, url, started_at, and 20 more; every field: pbx commands info meetings show
 
 **Next usually:** `pbx meetings transcript <meeting>`, `pbx meetings summary <meeting>`, `pbx meetings export <meeting>`
 
@@ -174,8 +172,6 @@ pbx meetings transcript <meeting> [options]
 | Option | What it does |
 |---|---|
 | `--history` | include superseded transcript versions. |
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
 
 **Returns:** meeting transcript — ref, meeting, source, language, superseded_at, created_at, lines; every field: pbx commands info meetings transcript
 
@@ -186,17 +182,12 @@ pbx meetings transcript <meeting> [options]
 show stored meeting summaries
 
 ```sh
-pbx meetings summary <meeting> [options]
+pbx meetings summary <meeting>
 ```
 
 | Argument | | What it is |
 |---|---|---|
 | `meeting` | required | stored meeting id. |
-
-| Option | What it does |
-|---|---|
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
 
 **Returns:** meeting summary — id, meeting, source, title, overview, sections, next_steps, content, and 3 more; every field: pbx commands info meetings summary
 
@@ -223,8 +214,6 @@ pbx meetings export <meeting> [options]
 | `--format <format>` | export format. One of: `markdown`, `vtt`. Default: `markdown`. |
 | `--transcript-id <id>` | export a specific transcript version. |
 | `--output <file>` | write content to a new file through the host's writer. |
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
 
 **Returns:** meeting export — meeting_id, format, filename, content, output; every field: pbx commands info meetings export
 
@@ -244,8 +233,6 @@ pbx meetings people <query> [options]
 
 | Option | What it does |
 |---|---|
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
 | `--limit <n>` | most matching observations per page, 1–1000 (default 50). |
 | `--scan-limit <n>` | most participant observations to inspect, 1–10000 (default 1000). |
 | `--max-read-bytes <bytes>` | most stored name and email bytes to read (default 1048576). |
@@ -267,9 +254,7 @@ pbx meetings sync [options]
 
 | Option | What it does |
 |---|---|
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
-| `--since-time <time>` | fetch meetings starting at or after this ISO 8601 date or time. |
+| `--since-time <time>` | fetch meetings starting at or after this ISO 8601 date or time, or 30m, 2h, 7d ago. |
 | `--lookback-days <days>` | revisit recent occurrences for late transcripts (0–31). |
 | `--rescan` | read the last 30 days again, not only what came after the last sync. |
 
@@ -284,17 +269,12 @@ import downloaded meeting transcripts
 **Changes something on this computer only.**
 
 ```sh
-pbx meetings import <folder> [options]
+pbx meetings import <folder>
 ```
 
 | Argument | | What it is |
 |---|---|---|
 | `folder` | required | folder of transcripts downloaded from the provider. |
-
-| Option | What it does |
-|---|---|
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
 
 **Returns:** meeting ingestion — meetings, participants, transcript_rows, summaries, warnings, timezone; every field: pbx commands info meetings import
 
@@ -312,8 +292,6 @@ pbx meetings repair [options]
 
 | Option | What it does |
 |---|---|
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
 | `--yes` | store the detected languages; otherwise only preview. |
 
 **Returns:** meeting repair — account_id, applied, transcripts, languages; every field: pbx commands info meetings repair
@@ -353,17 +331,12 @@ the owner's stored events
 list stored events
 
 ```sh
-pbx events list [query] [options]
+pbx events list [query]
 ```
 
 | Argument | | What it is |
 |---|---|---|
 | `query` | optional | event id, origin or time fields that narrow the list. |
-
-| Option | What it does |
-|---|---|
-| `--json` | one JSON value. |
-| `--jsonl` | one JSON object per item. |
 
 **Returns:** event — id, event_series_id, title, description, location, starts_at, ends_at, timezone, and 13 more; every field: pbx commands info events list
 
@@ -763,8 +736,8 @@ pbx runs list [query] [options]
 
 | Option | What it does |
 |---|---|
-| `--limit <n>` | how many to show. Default: `20`. |
-| `--page <n>` | which page, starting at 1. Default: `1`. |
+| `--limit <n>` | how many to show. |
+| `--page <n>` | which page, starting at 1. |
 
 **Returns:** run — run_id, command, started_at, status, cli_version, profile, completed_at, requests, and 23 more; every field: pbx commands info runs list
 

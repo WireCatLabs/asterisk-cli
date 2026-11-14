@@ -101,6 +101,8 @@ it("joins the two legs of a transferred call into one meeting, with both employe
   expect(await externalIds()).toContain("1761912000.41")
   const shown = JSON.parse(await details(legs[0]?.id as string))
   expect(shown.item.participants.map(({ role }: { role: string }) => role)).toEqual(["client", "manager", "manager"])
+  expect(shown).toMatchObject({ missing: [{ field: "server" }], meta: { run_id: expect.any(String) } })
+  expect(shown.item.item).toBeUndefined()
 })
 
 it("links a call's recording by its uniqueid in the date folder, and a missed call has none", async () => {
@@ -155,4 +157,21 @@ it("a Master.csv that is gone fails the sync with file.missing, and names no pat
   const synced = await runCli(["office", "meetings", "sync", "--json"])
   expect(synced.json()).toMatchObject({ error: { code: "not_found", reason: "file.missing" } })
   expect(synced.err).not.toContain("79000000001")
+})
+
+it("a bare meetings list pages by the profile's configured limit, not a number of its own", async () => {
+  await office()
+  expect((await sync()).code).toBe(0)
+  expect((await runCli(["office", "config", "set", "limit", "2", "--json"])).code).toBe(0)
+  const list = await runCli(["office", "meetings", "list", "--json"])
+  expect(list.code, list.err).toBe(0)
+  expect(list.json()).toMatchObject({ items: [{}, {}], page: { limit: 2, has_more: true } })
+})
+
+it("meetings list and show answer from the store for a profile with no call source set", async () => {
+  const list = await runCli(["office", "meetings", "list", "--json"])
+  expect(list.code, list.err).toBe(0)
+  expect(list.json()).toMatchObject({ items: [] })
+  const shown = await runCli(["office", "meetings", "show", "7", "--json"])
+  expect(JSON.parse(shown.err).error).toMatchObject({ code: "not_found" })
 })

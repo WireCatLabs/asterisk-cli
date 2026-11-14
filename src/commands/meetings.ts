@@ -11,6 +11,7 @@ import {
   NO_EFFECTS,
   outputFor,
   overrideSharedContract,
+  pagingOf,
   type RunOptions,
   readsOverMcp,
   renderAnswer,
@@ -49,9 +50,10 @@ const pathOf = (command: Command): string[] =>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 const LIST_KEYS = new Set(["items", "page", "limit", "hasMore", "meta"])
+const ITEM_KEYS = new Set(["item", "missing", "meta"])
 
 const EXAMPLES: Record<string, string> = {
-  "meetings list": "--limit 20",
+  "meetings list": "--limit 50",
   "meetings show": "1",
   "meetings transcript": "1",
   "meetings summary": "1",
@@ -100,8 +102,12 @@ const bodyOf = (command: Command, value: unknown) => {
       snakeKeys(value),
       goOn("meetings sync", "sync.continue", `${value.remaining} calls were not reached before the run stopped`, true),
     )
-  // cli-core's `meetings show` answers `{ item }` already; wrapped again it printed `item.item`.
-  if (isRecord(value) && isRecord(value.item) && Object.keys(value).length === 1) return itemOf(snakeKeys(value.item))
+  // cli-core's `meetings show` answers `{ item, missing?, meta? }` already; wrapped again it printed `item.item`.
+  if (isRecord(value) && isRecord(value.item) && Object.keys(value).every((key) => ITEM_KEYS.has(key)))
+    return itemOf(snakeKeys(value.item), {
+      ...(Array.isArray(value.missing) ? { missing: value.missing } : {}),
+      ...(isRecord(value.meta) ? { meta: value.meta } : {}),
+    })
   return itemOf(snakeKeys(value))
 }
 
@@ -129,6 +135,7 @@ export const meetingsMount = () => {
     newFileOutput: writesNewFileOnlyWith,
     writeFile: writeNewFile,
     budgetOf: runBudgetOf,
+    pagingOf,
     write: (value) => {
       const at = action
       if (!at) throw new CliError("configuration_error", "no command is running")
@@ -238,14 +245,23 @@ export const meetingsMount = () => {
         files: () => (files ??= openFiles(at)),
         source: () => {
           if (source) return source
-          const { phoneRegions, extension, files } = sourceOf(settings)
+          // Read on the first fetch: `meetings list` and `show` hold the source but answer from the store, so a
+          // profile with no call source set still lists what it has.
+          let config: ReturnType<typeof sourceOf> | undefined
+          const configured = () => (config ??= sourceOf(settings))
           source = callSource(
             { rows: async (since) => (await opening()).reader.rows(since) },
             {
               profile: settings.profile as string,
-              phoneRegions,
-              extension,
-              where: files.kind,
+              get phoneRegions() {
+                return configured().phoneRegions
+              },
+              get extension() {
+                return configured().extension
+              },
+              get where() {
+                return configured().files.kind
+              },
               recording: async (row) => {
                 const { source: config, files } = await opening()
                 if (!config.recordings) return null
