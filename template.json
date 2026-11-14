@@ -3,7 +3,7 @@
   "version": "0.23.0",
   "names": {
     "name": "asterisk-cli",
-    "command": "asterisk",
+    "command": "pbx",
     "package": "@wirecat/asterisk-cli",
     "owner": "WireCatLabs"
   },

@@ -100,7 +100,7 @@ const shown = async (title: string) => {
   const details = await runCli(["office", "meetings", "show", String(id), "--json"])
   expect(details.code, details.err).toBe(0)
   type Shown = { description: string; participants: { name: string | null; role: string; person: unknown }[] }
-  return (details.json() as { item: { item: Shown } }).item.item
+  return (details.json() as { item: Shown }).item
 }
 
 it("a sync keeps one meeting per call, with the caller and each employee who talked", async () => {
@@ -197,9 +197,9 @@ it("extension 101 of two PBXs is two people, not one", async () => {
     const list = await runCli([profile, "meetings", "list", "--limit", "50", "--json"])
     const id = (list.json().items as { id: string; title: string }[]).find((one) => one.title === "101 → 102")?.id
     const shown = (await runCli([profile, "meetings", "show", String(id), "--json"])).json() as {
-      item: { item: { participants: { name: string | null; person: { ref: string } }[] } }
+      item: { participants: { name: string | null; person: { ref: string } }[] }
     }
-    return shown.item.item.participants.find(({ name }) => name === "Анна Смирнова")?.person.ref
+    return shown.item.participants.find(({ name }) => name === "Анна Смирнова")?.person.ref
   }
   const [office101, branch101] = [await anna("office"), await anna("branch")]
   expect(office101).toBeDefined()

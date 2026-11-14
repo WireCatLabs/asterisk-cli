@@ -154,10 +154,11 @@ missing file is not.
 - A call is **incoming** when an outside number reached an extension or came in through a `from-trunk`, `from-pstn`
   or `from-did` context, **outgoing** when an extension called an outside number, **internal** between two
   extensions. Otherwise its direction is left empty.
-- Each call has two people: the extension as `manager`, the outside number as `client`, with the caller ID name when
-  the PBX had one. A hidden number (`anonymous`, `Restricted`) or a dialplan name such as `s` is no person.
-- A `Local/` channel, which queues, ring groups and follow-me use, names what was dialled, not who is on the line, so
-  the number decides that side.
+- A call's people are the outside number as `client`, with the caller ID name when the PBX had one, and as `manager`
+  the extension that placed it and each extension that answered. A hidden number (`anonymous`, `Restricted`) or a
+  dialplan name such as `s` is no person.
+- A ring group or queue reaches its members through `Local/<extension>@…` channels; the extension in that channel,
+  not the group's number, is the member who answered.
 
 ## Import the history, then keep it current
 

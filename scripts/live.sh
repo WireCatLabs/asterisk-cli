@@ -107,9 +107,9 @@ check() {
   printf '%s\n' "$password" | "${cli[@]}" "$profile" session start --credential-storage file --json >/dev/null
   "${cli[@]}" "$profile" session status --check --json >/dev/null
   "${cli[@]}" "$profile" meetings sync --since-time 2026-10-01T00:00:00Z --json >/dev/null
-  count "$profile" 6
+  count "$profile" 5
   "${cli[@]}" "$profile" meetings sync --since-time 2026-10-01T00:00:00Z --json >/dev/null
-  count "$profile" 6
+  count "$profile" 5
   "${cli[@]}" "$profile" session end --json >/dev/null
 }
 
@@ -139,7 +139,7 @@ actual=$(docker exec "$run-sftp" ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pu
 "${cli[@]}" live-sftp config set sftp_host_key "$shown" >/dev/null
 printf '%s\n' "$password" | "${cli[@]}" live-sftp session start --credential-storage file --json >/dev/null
 "${cli[@]}" live-sftp meetings sync --since-time 2026-10-01T00:00:00Z --json >/dev/null
-count live-sftp 6
+count live-sftp 5
 incoming=$("${cli[@]}" live-sftp meetings list --limit 100 --json | node -e '
   const list = JSON.parse(require("fs").readFileSync(0, "utf8"))
   console.log(list.items.find(({ title }) => title === "+79000000001 → 101").id)')
@@ -155,4 +155,4 @@ grep -q '"db.refused"' "$work/wrong.json"
 ! grep -q "$password" "$work/wrong.json"
 "${cli[@]}" doctor --json >/dev/null
 
-echo "live check passed: describe format 2; Master.csv, MariaDB 11.4 and PostgreSQL 18 each imported 6 calls twice without doubles; SFTP (atmoz/sftp) shown its key, pinned, read Master.csv and linked recordings; a wrong password refused"
+echo "live check passed: describe format 2; Master.csv, MariaDB 11.4 and PostgreSQL 18 each imported 5 calls (6 CDR rows, a transfer joined) twice without doubles; SFTP (atmoz/sftp) shown its key, pinned, read Master.csv and linked recordings; a wrong password refused"

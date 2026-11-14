@@ -100,6 +100,8 @@ const bodyOf = (command: Command, value: unknown) => {
       snakeKeys(value),
       goOn("meetings sync", "sync.continue", `${value.remaining} calls were not reached before the run stopped`, true),
     )
+  // cli-core's `meetings show` answers `{ item }` already; wrapped again it printed `item.item`.
+  if (isRecord(value) && isRecord(value.item) && Object.keys(value).length === 1) return itemOf(snakeKeys(value.item))
   return itemOf(snakeKeys(value))
 }
 
