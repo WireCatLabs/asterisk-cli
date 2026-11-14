@@ -8,7 +8,7 @@ import { DEFAULT_PATTERNS, recordingFinder } from "./recordings.js"
 
 const folder = () => mkdtempSync(join(tmpdir(), "asterisk-files-"))
 
-const written = (path: string, bytes = "RIFF") => {
+const written = (path: string, bytes = `RIFF${"\0".repeat(2044)}`) => {
   mkdirSync(join(path, ".."), { recursive: true })
   writeFileSync(path, bytes)
   const hourAgo = new Date(Date.now() - 3_600_000)

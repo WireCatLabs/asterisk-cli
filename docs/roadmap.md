@@ -16,7 +16,6 @@ the command line or MCP. See [connect your Asterisk](asterisk.md).
 
 - Find missed calls and calls in one direction with a filter on `meetings list`.
 - Call stats: calls per extension and per hour, and the share of missed calls.
-- Show the legs of a transferred call together, while each stays its own record.
 - Read Asterisk's CEL log, where transfers and queues are exact.
 
 ## What it will not do

@@ -33,15 +33,20 @@ under Node and `pnpm smoke:bun` under Bun, both in CI.
 
 ## A local Asterisk
 
-`bin/dev-pbx up` runs Asterisk 22 in Docker and makes four test calls: an answered incoming call, a missed one, a busy
-one and an answered outgoing call. No phone or SIP account is needed: each call is a pair of Asterisk's own channels,
-and the two sides play phrases in Russian made with `espeak-ng`. The dial plan and CDR settings are in `dev/pbx/`;
-neither ships in the npm package. The call records and FreePBX-style recordings land in
-`~/.cache/asterisk-dev-pbx` (`PBX_DEV_DATA` moves it), and the script prints the `pbx` settings that read them, for the
-CLI or for WireCat Desktop. `bin/dev-pbx calls` makes the calls again, `bin/dev-pbx down` removes the container.
+`bin/dev-pbx up` runs a small office's Asterisk 22 in Docker and makes twelve test calls. Two people in sales answer
+ring group 600, one in support answers queue 700, and the calls cover an answered call, a missed one that ends in
+voicemail and is called back, a queue wait, a busy line, a blind transfer, an internal call, answered and unanswered
+outgoing calls, a caller who hangs up while it rings, an anonymous caller and a repeat caller. No phone or SIP account
+is needed: each call is a pair of Asterisk's own channels, and every side plays a phrase in Russian made with
+`espeak-ng`. The dial plan is in `dev/pbx/extensions.conf`; nothing in `dev/` ships in the npm package.
 
-- Each call leaves two CDR rows when the dial plan goes on after `Dial`, as a real one does; `pbx` keeps them as two
-  calls until call legs are joined.
+The CDR goes to `Master.csv` and to Postgres, in FreePBX's `cdr` table with `recordingfile`, where the user
+`pbx_reader` (password `pbx-dev-read`, a test one for this container only) can only read. Recordings land under
+FreePBX's dated folders in `~/.cache/asterisk-dev-pbx` (`PBX_DEV_DATA` moves it). The PBX runs in the computer's time
+zone, as `pbx` assumes when `cdr_timezone` is not set. The script prints the `pbx` settings for both sources, for the
+CLI or for WireCat Desktop. `bin/dev-pbx calls` makes the calls again, `bin/dev-pbx down` removes the containers, and
+`PBX_DEV_NAME` with `PBX_DEV_DB_PORT` runs a second stand beside the first.
+
 - A recording younger than two minutes is left for the next sync, which still reads it: sync reads the last six hours
   again.
 - The local speech model understands the synthetic voice only in part.

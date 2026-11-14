@@ -30,11 +30,12 @@ Find your way with the tool itself, not this file:
 
 ## Calls
 
-- One call record is one meeting. Its title is the two sides, `+79000000001 → 101`; the outside number is in the
-  international form when the profile's `phone_region` is set.
+- One call is one meeting, its ring group, queue and transfer legs joined. Its title is the two sides,
+  `+79000000001 → 101`; the outside number is in the international form when the profile's `phone_region` is set.
+- `meetings show <id> --json` has the description: what became of the call (answered by whom after how long, talk
+  time, voicemail, busy, not answered) and who rang without answering. Read it before you say a call was missed.
 - Find a caller's calls with `pbx <profile> meetings list "title:*79000000001*" --json`, newest first; read one
   with `meetings transcript <id> --json`.
 - No transcript yet? `meetings transcribe id:<id> --json` makes one on this computer, when the call has a recording.
   It needs the speech model; the error says how to get it.
 - `meetings sync --json` imports what is new from the PBX. It never changes the PBX.
-- A transferred call is two records with the same time and number; read both.

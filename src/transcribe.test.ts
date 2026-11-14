@@ -50,7 +50,7 @@ beforeEach(async () => {
 it("transcribes the calls that have a recording, counts those without, and finds what the client said", async () => {
   const done = await transcribe([], { speech: speech() })
   expect(done.code, done.err).toBe(0)
-  expect(done.json().item).toMatchObject({ transcribed: 2, failed: [], without_recording: 4, remaining: 0 })
+  expect(done.json().item).toMatchObject({ transcribed: 2, failed: [], without_recording: 3, remaining: 0 })
 
   const list = await runCli(["office", "meetings", "list", "--json"])
   const call = (list.json().items as { id: string; title: string }[]).find(
@@ -61,7 +61,7 @@ it("transcribes the calls that have a recording, counts those without, and finds
   expect(transcript.out).toContain("оплатим в пятницу")
 
   const again = await transcribe([], { speech: speech() })
-  expect(again.json().item).toMatchObject({ transcribed: 0, without_recording: 4 })
+  expect(again.json().item).toMatchObject({ transcribed: 0, without_recording: 3 })
 })
 
 it("lists a recording that cannot be decoded and goes on with the rest", async () => {
