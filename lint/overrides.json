@@ -5,12 +5,5 @@
     "reason": "Keeps the short pbx command beside wcat-pbx, as zm, beeline, gcal and mail do.",
     "owner": "@WireCatLabs",
     "review_after": "2027-05-13"
-  },
-  {
-    "rule": "undeclared-host",
-    "target": "github.com",
-    "reason": "Links printed for the person to open: the issues link in src/identity.ts and the query-language guide in src/commands/transcribe.ts. pbx never sends a request there, and hostFetch would refuse one.",
-    "owner": "@WireCatLabs",
-    "review_after": "2027-05-13"
   }
 ]
