@@ -42,15 +42,15 @@
       },
       {
         "rule": "same-path-contract",
-        "target": "drive+max+pbx+tg+wa+zm doctor reports create: summary",
-        "expected": "drive: \"the report file written: its path, the run it is about, and where to send it\", max: \"write a problem report to a file, and print how to send it\", pbx: \"the report file written: its path, the run it is about, and where to send it\", tg: \"the report file written: its path, the run it is about, and where to send it\", wa: \"the report file written: its path, the run it is about, and where to send it\", zm: \"the report file written: its path, the run it is about, and where to send it\"",
-        "reason": "cli-core 0.647 reworded doctor reports; the published max is on older cli-core and agrees once it bumps it (review by 2026-12-13)"
+        "target": "drive+max+memo+pbx+tg+wa+zm mcp: summary",
+        "expected": "drive: \"serve this profile's commands to an AI agent, and set that up\", max: \"serve this profile's commands to an AI agent, and set that up\", memo: \"serve <cli>'s commands to an AI agent, and set that up\", pbx: \"serve this profile's commands to an AI agent, and set that up\", tg: \"serve this profile's commands to an AI agent, and set that up\", wa: \"serve this profile's commands to an AI agent, and set that up\", zm: \"serve this profile's commands to an AI agent, and set that up\"",
+        "reason": "the published memo prints \"<cli>'s\" here, which looks like a name left unfilled; the others say \"this profile's\" (review by 2026-12-14)"
       },
       {
         "rule": "same-path-contract",
-        "target": "drive+max+pbx+tg+wa+zm doctor reports show: summary",
-        "expected": "drive: \"what a report holds and never holds, and where to send it; writes nothing\", max: \"what a problem report holds and where it goes; writes nothing\", pbx: \"what a report holds and never holds, and where to send it; writes nothing\", tg: \"what a report holds and never holds, and where to send it; writes nothing\", wa: \"what a report holds and never holds, and where to send it; writes nothing\", zm: \"what a report holds and never holds, and where to send it; writes nothing\"",
-        "reason": "cli-core 0.647 reworded doctor reports; the published max is on older cli-core and agrees once it bumps it (review by 2026-12-13)"
+        "target": "drive+max+memo+pbx+tg+wa+zm mcp serve: summary",
+        "expected": "drive: \"serve this profile's commands to an AI agent\", max: \"serve this profile's commands to an AI agent\", memo: \"serve <cli>'s commands to an AI agent\", pbx: \"serve this profile's commands to an AI agent\", tg: \"serve this profile's commands to an AI agent\", wa: \"serve this profile's commands to an AI agent\", zm: \"serve this profile's commands to an AI agent\"",
+        "reason": "the published memo prints \"<cli>'s\" here, which looks like a name left unfilled; the others say \"this profile's\" (review by 2026-12-14)"
       }
     ]
   }

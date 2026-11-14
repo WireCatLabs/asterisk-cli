@@ -1,0 +1,77 @@
+#!/usr/bin/env sh
+# A real Asterisk in Docker that makes test calls, for trying pbx without a phone system. Dev only: not in the npm
+# package. Calls run between Local channels, so no phone or SIP account is needed; the speech is espeak-ng in Russian.
+#
+#   bin/dev-pbx up      # start Asterisk, make four calls (answered in, missed, busy, answered out)
+#   bin/dev-pbx calls   # make the four calls again
+#   bin/dev-pbx down    # stop and remove the container; the call data stays in the data folder
+#
+# PBX_DEV_DATA moves the data folder (default ~/.cache/asterisk-dev-pbx).
+set -eu
+
+image=andrius/asterisk:22.10.1_alpine-3.24
+name=asterisk-dev-pbx
+root=$(cd "$(dirname "$0")/.." && pwd)
+data=${PBX_DEV_DATA:-${XDG_CACHE_HOME:-$HOME/.cache}/asterisk-dev-pbx}
+
+in_pbx() { docker exec -u root "$name" sh -c "$1"; }
+
+say() {
+  in_pbx "espeak-ng -v ru -s 120 -g 6 -w /tmp/$1.wav '$2' && mkdir -p /var/lib/asterisk/sounds/dev \
+    && sox /tmp/$1.wav -r 8000 -c 1 -b 16 /var/lib/asterisk/sounds/dev/$1.wav"
+}
+
+# Asterisk picks up a call file the moment it appears, so it is written elsewhere and moved in whole.
+call() {
+  in_pbx "printf '%s\n' 'Channel: Local/$1@caller' 'CallerID: $2' 'Context: $3' 'Extension: $4' 'Priority: 1' \
+    'MaxRetries: 0' > /tmp/$5.call && chown asterisk /tmp/$5.call && mv /tmp/$5.call /var/spool/asterisk/outgoing/"
+}
+
+calls() {
+  call talk '"Иван Тестов" <79161234567>' from-trunk 101 in-answered
+  sleep 2
+  call wait '<79035550000>' from-trunk 102 in-missed
+  sleep 2
+  call wait '<74957770000>' from-trunk 103 in-busy
+  sleep 2
+  call ask '"Оператор" <101>' from-internal 74951234567 out-answered
+  echo "Calls started; the last one ends in about 40 seconds."
+}
+
+up() {
+  mkdir -p "$data/cdr-csv" "$data/monitor"
+  docker run -d --name "$name" \
+    -v "$root/dev/pbx/extensions.conf:/etc/asterisk/extensions.conf:ro" \
+    -v "$root/dev/pbx/cdr.conf:/etc/asterisk/cdr.conf:ro" \
+    -v "$data/cdr-csv:/var/log/asterisk/cdr-csv" \
+    -v "$data/monitor:/var/spool/asterisk/monitor" \
+    "$image" >/dev/null
+  in_pbx "apk add --no-cache -q espeak-ng sox"
+  say operator "Здравствуйте, компания Ромашка, оператор Анна. Чем могу помочь?"
+  say client "Добрый день. Хочу узнать, когда приедет мой заказ номер сорок два."
+  say reply "Ваш заказ приедет завтра до обеда. Всего доброго."
+  say warehouse "Склад, слушаю."
+  say ask "Это Анна из Ромашки. Когда отгрузите заказ сорок два?"
+  say ship "Отгрузим завтра утром, машина уже заказана."
+  until in_pbx "asterisk -rx 'core show version'" >/dev/null 2>&1; do sleep 1; done
+  calls
+  cat <<EOF
+
+Data folder: $data
+Point pbx at it (any profile name):
+  pbx devpbx config set cdr_csv_path $data/cdr-csv/Master.csv
+  pbx devpbx config set recordings_path $data/monitor
+  pbx devpbx config set cdr_timezone UTC
+  pbx devpbx config set phone_region ru
+  pbx devpbx session start
+  pbx devpbx meetings sync
+In WireCat Desktop, sign in to Asterisk with the same two paths.
+EOF
+}
+
+case "${1:-}" in
+  up) up ;;
+  calls) calls ;;
+  down) docker rm -f "$name" >/dev/null && echo "Stopped. Call data stays in $data" ;;
+  *) echo "usage: bin/dev-pbx up | calls | down" >&2; exit 1 ;;
+esac
