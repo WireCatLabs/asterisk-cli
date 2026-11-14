@@ -16,7 +16,8 @@ import type { RecordingSide } from "./source.js"
  * ffmpeg, whose output stops at an hour of speech: a 690 MB hour of 48 kHz stereo WAV peaked at 1.4 GB, and an hour
  * of 32-bit samples is about 1.4 GB, so 2 GB lets every hour-long WAV through.
  */
-export const LARGEST_RECORDING = 2 * 1024 * 1024 * 1024
+// One byte under 2 GiB: Node's readFile refuses a file of 2 GiB or more.
+export const LARGEST_RECORDING = 2 * 1024 * 1024 * 1024 - 1
 
 /**
  * MP3, Ogg, Opus and FLAC are decoded whole by bundled decoders before cli-core checks the hour, so a file decodes to

@@ -94,9 +94,9 @@ settings.
      is not on your own network.
 4. **Recordings folder (optional)** is the folder of the call recordings on this computer. Calls come in without it
    too.
-5. Under **Countries of your phone lines**, pick the countries your phone lines serve. Callers are matched to your
-   contacts by phone number, and Asterisk often writes a number without its country code. Calls from other
-   countries arrive with their `+` code anyway.
+5. Under **Countries of your phone lines**, choose the countries. The form explains: "Callers are matched to your
+   contacts by phone number. Asterisk often writes a number without its country code, so pick the countries your
+   phone lines serve. Calls from other countries arrive with their + code anyway."
 6. Start the sign-in. `pbx` reads the newest hour of calls to check the settings, and changes nothing. A database
    password is kept only once that check works. The sync then brings in the calls of the last 30 days, with their
    recordings.
@@ -221,8 +221,8 @@ reading the newest call records, and keeps it in the keyring.
 
 Paths are the phone system's: `cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv`, `recordings_path
 /var/spool/asterisk/monitor`. A profile keeps one saved password. A profile that reads its records from a database
-keeps the database password, so it connects to SFTP with a key file. A dropped connection or a timeout is tried again; a wrong password, a changed
-key or a missing file is not.
+keeps the database password, so it connects to SFTP with a key file. A dropped connection or a timeout is tried
+again; a wrong password, a changed key or a missing file is not.
 
 ## Numbers, directions and people
 
@@ -266,8 +266,8 @@ Recognition runs on this computer, and the recordings are not sent anywhere. A r
 read again unless the file changed; `--replace` transcribes again.
 
 A recording can be up to one hour long. A WAV, GSM or M4A file can be up to 2 GB, and an MP3, Ogg or FLAC file up
-to 256 MB. `Master.csv` on this computer or in a mounted folder can be of any size. Over SFTP it can be up to
-512 MB, because it is read into memory whole.
+to 256 MB. `Master.csv` on this computer or in a mounted folder can be of any size. Read over SFTP (the secure file
+access of the phone system), it can be up to 512 MB, because it is read into memory whole.
 
 Each line of a transcript can name who said it. Your dialplan records the two sides of a call either as one mixed
 track (mono) or on two channels (stereo). A stereo recording in MP3, Ogg or FLAC keeps the channels apart. Tell
@@ -280,8 +280,8 @@ pbx office meetings transcribe --replace
 
 Each line then names the caller by name and number, such as `Ivan Testov +79000000001`, or the employee by
 extension and name, such as `101 Oleg Operatorov`. Without the setting, the lines say `Channel 1` and `Channel 2`.
-To find out which side is on which channel, transcribe one call and read it. A mono recording, and a WAV or GSM
-recording, gives the text without names, because ffmpeg mixes the channels into one. A call between two
+To find out which side is on which channel, transcribe one call and read it. A mono recording, and a WAV, GSM or
+M4A recording, gives the text without names, because ffmpeg mixes the channels into one. A call between two
 extensions keeps `Channel 1` and `Channel 2`, since it has no caller from outside.
 
 ## Search the calls with everything else

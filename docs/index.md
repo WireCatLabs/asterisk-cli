@@ -51,7 +51,7 @@ all WireCat tools keep their data in one local store.
 - **Summaries.** Your agent reads a transcript and writes the summary. `pbx` writes none of its own.
 - **Who said what.** Every recording is turned into text. A stereo recording in MP3, Ogg or FLAC names the caller
   and the employee on each line when you set [`recordings_channels`](installation.md#transcribe). A mono recording,
-  and a WAV or GSM one, gives the text without names.
+  and a WAV, GSM or M4A one, gives the text without names.
 - **Playing a recording.** A call links its recording by the file's path, and you open the file in a player. There
   is no link that plays it in a browser.
 - **Recognition quality.** Speech is recognized on this computer, and the result depends on the recording and the

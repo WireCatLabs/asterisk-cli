@@ -155,9 +155,10 @@ More: [settings](docs/configuration.md).
 - **Who said what.** Every recording is turned into text. A stereo recording in the sound formats MP3, Ogg or FLAC
   keeps its two channels apart: set `recordings_channels`, and each line names the caller or the employee. Without
   that setting, the lines say `Channel 1` and `Channel 2`. A mono recording gives the text without names, and so
-  does a WAV or GSM recording, because ffmpeg mixes its channels into one.
-- **Size.** Master.csv on this computer or in a mounted folder can be of any size: `pbx` reads it line by line. Over
-  SFTP it can be up to 512 MB, because it is read into memory whole. A recording can be up to one hour long, and up
+  does a WAV, GSM or M4A recording, because ffmpeg mixes its channels into one.
+- **Size.** Master.csv on this computer or in a mounted folder can be of any size: `pbx` reads it line by line. Read
+  over SFTP (the secure file access of the phone system), it can be up to 512 MB, because it is read into memory
+  whole. A recording can be up to one hour long, and up
   to 2 GB for WAV, GSM and M4A or 256 MB for MP3, Ogg and FLAC.
 - **Speech recognition.** It runs on this computer only. A cloud speech-to-text service is planned, as an option you
   turn on.

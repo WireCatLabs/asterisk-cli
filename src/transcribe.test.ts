@@ -138,7 +138,7 @@ it("keeps Channel 1 and Channel 2 without recordings_channels, and refuses anoth
 })
 
 it("reads what ffmpeg decodes up to 2 GB, since its output stops at an hour, and MP3, Ogg and FLAC up to 256 MB", () => {
-  expect(largestRecording("in-1761901200.11.WAV")).toBe(2 * 1024 ** 3)
-  expect(largestRecording("1761908400.31.gsm")).toBe(2 * 1024 ** 3)
+  expect(largestRecording("in-1761901200.11.WAV")).toBe(2 * 1024 ** 3 - 1)
+  expect(largestRecording("1761908400.31.gsm")).toBe(2 * 1024 ** 3 - 1)
   expect(largestRecording("external-1761904800.21.mp3")).toBe(256 * 1024 ** 2)
 })

@@ -3,8 +3,10 @@
 - **A transcript can name who said each line.** Set `recordings_channels` to `caller,employee` or `employee,caller`,
   as your dialplan records the two sides, and each line of a stereo MP3, Ogg or FLAC recording names the caller by
   name and number, or the employee by extension and name. Without the setting the lines say `Channel 1` and
-  `Channel 2`, as before. `meetings transcribe --replace` labels the calls already transcribed. A WAV or GSM
-  recording is still one mixed track. See [transcribe](../docs/installation.md#transcribe).
+  `Channel 2`, as before. `meetings transcribe --replace` labels the calls already transcribed. A call imported by
+  an earlier version gets the caller's number in its label only after a sync reads it again: run `meetings sync`
+  with `--since-time` at your first call before `--replace`. A WAV, GSM or M4A recording is still one mixed track.
+  See [transcribe](../docs/installation.md#transcribe).
 - **Master.csv of any size.** A `Master.csv` on this computer or in a mounted folder is read line by line, so a file
   over 512 MB is no longer refused, and only the calls a sync needs stay in memory. Over SFTP it is still read whole,
   up to 512 MB.
