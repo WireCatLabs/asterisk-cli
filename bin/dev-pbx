@@ -1,16 +1,23 @@
 #!/usr/bin/env sh
-# A real Asterisk in Docker that makes test calls, for trying pbx without a phone system. Dev only: not in the npm
-# package. Calls run between Local channels, so no phone or SIP account is needed; the speech is espeak-ng in Russian.
+# A small office's Asterisk in Docker that makes a dozen test calls, for trying pbx without a phone system. Dev only:
+# not in the npm package. No phone or SIP account is needed: calls run between Local channels, and every side speaks
+# Russian through espeak-ng. Staff, ring group, queue and the calls are described in dev/pbx/extensions.conf.
 #
-#   bin/dev-pbx up      # start Asterisk, make four calls (answered in, missed, busy, answered out)
-#   bin/dev-pbx calls   # make the four calls again
-#   bin/dev-pbx down    # stop and remove the container; the call data stays in the data folder
+#   bin/dev-pbx up      # start Asterisk and Postgres, make the calls
+#   bin/dev-pbx calls   # make the calls again
+#   bin/dev-pbx down    # remove the containers; the call files stay in the data folder
 #
-# PBX_DEV_DATA moves the data folder (default ~/.cache/asterisk-dev-pbx).
+# The CDR goes both to Master.csv and to Postgres (FreePBX's cdr table, user pbx_reader, read only).
+# PBX_DEV_DATA moves the data folder (default ~/.cache/asterisk-dev-pbx), PBX_DEV_DB_PORT the database port (54329),
+# PBX_DEV_NAME names the containers, for a second stand beside the first.
 set -eu
 
 image=andrius/asterisk:22.10.1_alpine-3.24
-name=asterisk-dev-pbx
+db_image=postgres:17-alpine
+name=${PBX_DEV_NAME:-asterisk-dev-pbx}
+db=$name-db
+net=$name
+port=${PBX_DEV_DB_PORT:-54329}
 root=$(cd "$(dirname "$0")/.." && pwd)
 data=${PBX_DEV_DATA:-${XDG_CACHE_HOME:-$HOME/.cache}/asterisk-dev-pbx}
 
@@ -21,57 +28,114 @@ say() {
     && sox /tmp/$1.wav -r 8000 -c 1 -b 16 /var/lib/asterisk/sounds/dev/$1.wav"
 }
 
-# Asterisk picks up a call file the moment it appears, so it is written elsewhere and moved in whole.
+# call <caller script> <caller id> <context> <number> <scenario>. Asterisk picks a call file up the moment it appears,
+# so it is written elsewhere and moved in whole.
 call() {
   in_pbx "printf '%s\n' 'Channel: Local/$1@caller' 'CallerID: $2' 'Context: $3' 'Extension: $4' 'Priority: 1' \
-    'MaxRetries: 0' > /tmp/$5.call && chown asterisk /tmp/$5.call && mv /tmp/$5.call /var/spool/asterisk/outgoing/"
+    'MaxRetries: 0' 'Setvar: __SCEN=$5' > /tmp/$5.call && chown asterisk /tmp/$5.call \
+    && mv /tmp/$5.call /var/spool/asterisk/outgoing/"
+}
+
+# A blind transfer: the caller's channel of the call from <number> goes on to extension <to>.
+transfer() {
+  channel=$(in_pbx "asterisk -rx 'core show channels concise'" | awk -F'!' -v n="$1" \
+    '$1 ~ /^Local\/[0-9]+@trunk-.*;2$/ && $8 == n { print $1; exit }')
+  [ -n "$channel" ] && in_pbx "asterisk -rx 'channel redirect $channel route,$2,1'" >/dev/null
 }
 
 calls() {
-  call talk '"Иван Тестов" <79161234567>' from-trunk 101 in-answered
-  sleep 2
-  call wait '<79035550000>' from-trunk 102 in-missed
-  sleep 2
-  call wait '<74957770000>' from-trunk 103 in-busy
-  sleep 2
-  call ask '"Оператор" <101>' from-internal 74951234567 out-answered
-  echo "Calls started; the last one ends in about 40 seconds."
+  call talk '"Иван Тестов" <79161234567>' from-trunk 600 sales
+  call message '"Пётр Звонов" <79035550000>' from-trunk 600 missed
+  call talk '<79267770011>' from-trunk 700 support
+  call wait '<74957770000>' from-trunk 102 busy
+  call talk '"Ольга Новикова" <79161112233>' from-trunk 101 transfer
+  call ask '"Анна Смирнова" <101>' from-internal 102 internal
+  call ask '"Анна Смирнова" <101>' from-internal 74951234567 order
+  call ask '"Борис Кузнецов" <102>' from-internal 74959990000 noanswer
+  call quick '<79990001122>' from-trunk 103 short
+  call talk '"" <anonymous>' from-trunk 600 anonymous
+  sleep 15
+  transfer 79161112233 103 || echo "the transfer call was not found" >&2
+  sleep 35
+  call talk '"Иван Тестов" <79161234567>' from-trunk 600 repeat
+  call ask '"Борис Кузнецов" <102>' from-internal 79035550000 callback
+  echo "12 calls made; the last ones end in about a minute."
+}
+
+phrases() {
+  say sales-hello "Здравствуйте, компания Ромашка, отдел продаж, Анна. Слушаю вас."
+  say sales-client "Добрый день. Хочу узнать, когда приедет мой заказ номер сорок два."
+  say sales-reply "Ваш заказ приедет завтра до обеда. Всего доброго."
+  say missed-message "Здравствуйте, это Пётр. Перезвоните мне, пожалуйста, по поводу счёта."
+  say support-hello "Служба поддержки, Вера, здравствуйте."
+  say support-client "У меня не получается оформить заказ на сайте."
+  say support-reply "Сейчас проверю. Обновите страницу, ошибку мы уже исправили."
+  say transfer-hello "Отдел продаж, Анна. Сейчас переключу вас на поддержку."
+  say transfer-client "Мне нужна помощь с доставкой."
+  say transfer-reply "Поддержка, Вера. Доставку оформим сегодня."
+  say internal-ask "Борис, подмени меня на звонке в три часа?"
+  say internal-hello "Да, Борис слушает."
+  say internal-reply "Хорошо, подменю."
+  say order-ask "Это Анна из Ромашки. Когда отгрузите заказ сорок два?"
+  say order-hello "Склад, слушаю."
+  say order-reply "Отгрузим завтра утром, машина уже заказана."
+  say noanswer-ask "Алло, это Борис из Ромашки."
+  say anonymous-hello "Ромашка, Борис, слушаю."
+  say anonymous-client "Здравствуйте, вы работаете в субботу?"
+  say anonymous-reply "Да, с десяти до шести."
+  say repeat-hello "Отдел продаж, Борис, здравствуйте."
+  say repeat-client "Это снова Иван, по заказу сорок два. Можно перенести доставку на пятницу?"
+  say repeat-reply "Да, перенёс на пятницу. Хорошего дня."
+  say callback-ask "Добрый день, это Борис из Ромашки, вы нам звонили."
+  say callback-hello "Алло, слушаю."
+  say callback-reply "Да, спасибо, пришлите счёт на почту."
 }
 
 up() {
+  down >/dev/null
   mkdir -p "$data/cdr-csv" "$data/monitor"
-  docker run -d --name "$name" \
-    -v "$root/dev/pbx/extensions.conf:/etc/asterisk/extensions.conf:ro" \
-    -v "$root/dev/pbx/cdr.conf:/etc/asterisk/cdr.conf:ro" \
+  docker network inspect "$net" >/dev/null 2>&1 || docker network create "$net" >/dev/null
+  docker run -d --name "$db" --network "$net" --network-alias postgres -p "127.0.0.1:$port:5432" \
+    -e POSTGRES_DB=asteriskcdrdb -e POSTGRES_USER=asterisk -e POSTGRES_PASSWORD=asterisk-dev \
+    -v "$root/dev/pbx/cdr.sql:/docker-entrypoint-initdb.d/cdr.sql:ro" "$db_image" >/dev/null
+  until docker exec "$db" psql -U asterisk -d asteriskcdrdb -c 'select 1 from cdr' >/dev/null 2>&1; do sleep 1; done
+  conf=""
+  for file in extensions cdr cdr_pgsql queues voicemail; do
+    conf="$conf -v $root/dev/pbx/$file.conf:/etc/asterisk/$file.conf:ro"
+  done
+  # shellcheck disable=SC2086 # the -v options are meant to split
+  # The PBX keeps the computer's time zone, as pbx assumes when cdr_timezone is not set.
+  docker run -d --name "$name" --network "$net" $conf -v /etc/localtime:/etc/localtime:ro \
     -v "$data/cdr-csv:/var/log/asterisk/cdr-csv" \
     -v "$data/monitor:/var/spool/asterisk/monitor" \
     "$image" >/dev/null
   in_pbx "apk add --no-cache -q espeak-ng sox"
-  say operator "Здравствуйте, компания Ромашка, оператор Анна. Чем могу помочь?"
-  say client "Добрый день. Хочу узнать, когда приедет мой заказ номер сорок два."
-  say reply "Ваш заказ приедет завтра до обеда. Всего доброго."
-  say warehouse "Склад, слушаю."
-  say ask "Это Анна из Ромашки. Когда отгрузите заказ сорок два?"
-  say ship "Отгрузим завтра утром, машина уже заказана."
-  until in_pbx "asterisk -rx 'core show version'" >/dev/null 2>&1; do sleep 1; done
+  phrases
+  until in_pbx "asterisk -rx 'cdr show status'" 2>/dev/null | grep -q pgsql; do sleep 1; done
   calls
   cat <<EOF
 
-Data folder: $data
-Point pbx at it (any profile name):
-  pbx devpbx config set cdr_csv_path $data/cdr-csv/Master.csv
+The same calls, two ways to read them (any profile name):
+  Master.csv:  pbx devpbx config set cdr_csv_path $data/cdr-csv/Master.csv
+  Postgres:    pbx devpbx config set cdr_source postgres; db_host 127.0.0.1, db_port $port,
+               db_name asteriskcdrdb, db_user pbx_reader, password pbx-dev-read (a test one, this container only)
+Then for both:
   pbx devpbx config set recordings_path $data/monitor
-  pbx devpbx config set cdr_timezone UTC
   pbx devpbx config set phone_region ru
   pbx devpbx session start
-  pbx devpbx meetings sync
-In WireCat Desktop, sign in to Asterisk with the same two paths.
+  pbx devpbx meetings sync      (recordings join two minutes after a call ends)
 EOF
+}
+
+down() {
+  docker rm -f "$name" "$db" >/dev/null 2>&1 || true
+  docker network rm "$net" >/dev/null 2>&1 || true
+  echo "Stopped. The call files stay in $data"
 }
 
 case "${1:-}" in
   up) up ;;
   calls) calls ;;
-  down) docker rm -f "$name" >/dev/null && echo "Stopped. Call data stays in $data" ;;
+  down) down ;;
   *) echo "usage: bin/dev-pbx up | calls | down" >&2; exit 1 ;;
 esac
