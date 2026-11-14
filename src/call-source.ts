@@ -28,15 +28,37 @@ export interface CdrRows {
 export interface CallSourceOptions {
   /** The profile: extension 101 of one PBX is not extension 101 of another. */
   profile: string
-  phoneRegion: string | null
+  /** The countries of numbers written without `+`. */
+  phoneRegions: readonly string[]
   extension: RegExp
   recording?: ((row: CdrRow) => Promise<Recording | null>) | undefined
   /** Told how many rows were unreadable, so the run shows it. */
   skipped?: (count: number) => void
+  /** Told how many callers' numbers fit more than one of the countries and were left as written. */
+  ambiguous?: (count: number) => void
 }
 
 /** The form WhatsApp, MAX and the CRMs keep, so the caller is one `phone:` identity across them. */
-const e164 = (number: string, region: string | null) => e164Of(number, region ?? undefined) ?? null
+/** Each country a national number fits; one written with `+` or `00` names its own. */
+const readings = (number: string, regions: readonly string[]) =>
+  new Set(
+    (regions.length ? regions : [undefined])
+      .map((region) => e164Of(number, region))
+      .filter((one): one is string => typeof one === "string"),
+  )
+
+/** A number two of the countries read differently is left as written: a wrong guess joins a stranger's contact. */
+const e164 = (number: string, regions: readonly string[]) => {
+  const found = readings(number, regions)
+  return found.size === 1 ? ([...found][0] as string) : null
+}
+
+const ambiguous = (calls: readonly PhoneCall[], regions: readonly string[]) =>
+  new Set(
+    calls
+      .map(({ client }) => client?.number)
+      .filter((number): number is string => !!number && readings(number, regions).size > 1),
+  ).size
 
 const legOf = ({ row }: Leg) => ({
   uniqueid: row.uniqueid,
@@ -54,12 +76,12 @@ const legOf = ({ row }: Leg) => ({
   billMs: row.billMs,
 })
 
-const titleOf = (call: PhoneCall, region: string | null) => {
+const titleOf = (call: PhoneCall, regions: readonly string[]) => {
   const [first] = call.legs as [Leg, ...Leg[]]
   const to = call.answeredBy.at(-1) ?? (call.rang.length === 1 ? call.rang[0] : null) ?? call.dialed
   const from = call.placedBy ?? first.call.from?.number
   const label = (number: string | null | undefined, internal: boolean) =>
-    !number ? "?" : internal ? number : (e164(number, region) ?? number)
+    !number ? "?" : internal ? number : (e164(number, regions) ?? number)
   return call.direction === "outgoing"
     ? `${label(from, true)} → ${label(call.client?.number, false)}`
     : `${label(from, call.direction === "internal")} → ${label(to, true)}`
@@ -76,7 +98,7 @@ const OUTCOMES = { voicemail: "went to voicemail", busy: "busy", no_answer: "not
  * What became of the call, in a sentence: `meetings show`, search, Desktop and an agent read the description, never
  * the metadata.
  */
-export const describe = (call: PhoneCall, names: ReadonlyMap<string, string>, region: string | null): string => {
+export const describe = (call: PhoneCall, names: ReadonlyMap<string, string>, regions: readonly string[]): string => {
   const who = (number: string) => [number, names.get(number)].filter(Boolean).join(" ")
   const caller = call.placedBy
   const kinds: Record<string, string> = {
@@ -88,7 +110,7 @@ export const describe = (call: PhoneCall, names: ReadonlyMap<string, string>, re
   const target =
     call.direction === "outgoing"
       ? call.client
-        ? (e164(call.client.number, region) ?? call.client.number)
+        ? (e164(call.client.number, regions) ?? call.client.number)
         : null
       : call.dialed
   const head = `${kind ?? "Call"}${target ? ` to ${target}` : ""}`
@@ -103,15 +125,15 @@ export const describe = (call: PhoneCall, names: ReadonlyMap<string, string>, re
   return `${head}${placed}: ${answered}.`
 }
 
-const meetingOf = (call: PhoneCall, region: string | null, names: ReadonlyMap<string, string>): SourceMeeting => {
+const meetingOf = (call: PhoneCall, regions: readonly string[], names: ReadonlyMap<string, string>): SourceMeeting => {
   const [first] = call.legs as [Leg, ...Leg[]]
   return {
     series: null,
-    description: describe(call, names, region),
+    description: describe(call, names, regions),
     occurrence: {
       id: call.id,
       seriesId: call.id,
-      title: titleOf(call, region),
+      title: titleOf(call, regions),
       startedAt: new Date(call.start).toISOString(),
       endedAt: call.end === null ? null : new Date(call.end).toISOString(),
     },
@@ -138,7 +160,7 @@ const meetingOf = (call: PhoneCall, region: string | null, names: ReadonlyMap<st
 
 const NONE = { joinedAt: null, leftAt: null, durationMs: null, sessions: null, metadata: {} }
 
-const participantOf = (party: Party, region: string | null, profile: string): SourceParticipant => {
+const participantOf = (party: Party, regions: readonly string[], profile: string): SourceParticipant => {
   if (party.internal)
     return {
       ...NONE,
@@ -148,7 +170,7 @@ const participantOf = (party: Party, region: string | null, profile: string): So
       externalId: party.number,
       role: "manager",
     }
-  const phone = e164(party.number, region)
+  const phone = e164(party.number, regions)
   return {
     ...NONE,
     identityExternalId: phone ? `phone:${phone}` : `number:${party.number.replace(/\s/g, "")}`,
@@ -215,7 +237,9 @@ export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: 
       const calls = callsOf(read.rows, options.extension)
       names = extensionNames(calls.flatMap(({ legs }) => legs))
       for (const call of calls) seen.set(call.id, call)
-      return calls.map((call) => meetingOf(call, options.phoneRegion, names))
+      const unsure = ambiguous(calls, options.phoneRegions)
+      if (unsure > 0) options.ambiguous?.(unsure)
+      return calls.map((call) => meetingOf(call, options.phoneRegions, names))
     },
     participants: async (id) => {
       const call = seen.get(id)
@@ -224,13 +248,13 @@ export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: 
       const staff = employees.map((number) =>
         participantOf(
           { number, internal: true, name: names.get(number) ?? null },
-          options.phoneRegion,
+          options.phoneRegions,
           options.profile,
         ),
       )
       const client =
         call.client && isDialable(call.client.number)
-          ? [participantOf(call.client, options.phoneRegion, options.profile)]
+          ? [participantOf(call.client, options.phoneRegions, options.profile)]
           : []
       return call.direction === "outgoing" ? [...staff, ...client] : [...client, ...staff]
     },

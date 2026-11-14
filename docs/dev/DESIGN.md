@@ -53,7 +53,7 @@ Owner, 2026-11-12.
   `from-trunk`, `from-pstn`, `from-did` contexts. Nothing else is guessed.
 - **People:** the extension is `extension:<n>` with the role `manager`; the outside number is `phone:<E.164>` with the
   role `client` when `phone_region` makes it international, else `number:<as written>`, which matches nothing in other
-  sources. The roles are beeline's.
+  sources. With several countries, a number that two of them read differently stays `number:`: no guess. The roles are beeline's.
 - **The cursor** is cli-core's: when the last sync began, read again six hours earlier, since a CDR row is written when
   the call ends. Master.csv is read whole and filtered; a database is asked from the cursor, in its wall time, in pages
   of 5,000 ordered by time and uniqueid.

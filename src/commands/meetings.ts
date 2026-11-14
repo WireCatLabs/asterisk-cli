@@ -236,12 +236,12 @@ export const meetingsMount = () => {
         files: () => (files ??= openFiles(at)),
         source: () => {
           if (source) return source
-          const { phoneRegion, extension, files } = sourceOf(settings)
+          const { phoneRegions, extension, files } = sourceOf(settings)
           source = callSource(
             { rows: async (since) => (await opening()).reader.rows(since) },
             {
               profile: settings.profile as string,
-              phoneRegion,
+              phoneRegions,
               extension,
               where: files.kind,
               recording: async (row) => {
@@ -252,6 +252,10 @@ export const meetingsMount = () => {
               },
               skipped: (count) =>
                 environmentOf(at).streams?.diagnostic(`${count} call records could not be read and were skipped`),
+              ambiguous: (count) =>
+                environmentOf(at).streams?.diagnostic(
+                  `${count} callers' numbers fit more than one of phone_region's countries and were kept as written`,
+                ),
             },
           )
           return source

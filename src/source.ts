@@ -19,7 +19,7 @@ export interface SourceConfig {
   recordings: { root: string; patterns: string[] } | null
   files: { kind: "local" } | ({ kind: "sftp" } & SftpPlace)
   zone: string
-  phoneRegion: string | null
+  phoneRegions: string[]
   extension: RegExp
 }
 
@@ -127,7 +127,14 @@ export const sourceOf = (settings: Settings): SourceConfig => {
           }
         : { kind: "local" },
     zone: zoneOf(text(values, "cdr_timezone")),
-    phoneRegion: text(values, "phone_region")?.toLowerCase() ?? null,
+    phoneRegions: [
+      ...new Set(
+        (text(values, "phone_region") ?? "")
+          .toLowerCase()
+          .split(/[\s,]+/)
+          .filter(Boolean),
+      ),
+    ],
     extension: extensionOf(text(values, "extension_pattern") ?? "^\\d{2,5}$"),
   }
 }
