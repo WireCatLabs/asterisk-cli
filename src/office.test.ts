@@ -96,7 +96,7 @@ const shown = async (title: string) => {
   const id = (list.json().items as { id: string; title: string }[]).find((one) => one.title === title)?.id
   const details = await runCli(["office", "meetings", "show", String(id), "--json"])
   expect(details.code, details.err).toBe(0)
-  type Shown = { participants: { name: string | null; role: string; person: unknown }[] }
+  type Shown = { description: string; participants: { name: string | null; role: string; person: unknown }[] }
   return (details.json() as { item: { item: Shown } }).item.item
 }
 
@@ -114,6 +114,12 @@ it("a sync keeps one meeting per call, with the caller and each employee who tal
     ["Анна Смирнова", "manager"],
     [null, "manager"],
   ])
+  expect(transfer.description).toBe(
+    "Incoming call to 103: answered by 101 Анна Смирнова, then 103 after 0:02, talk 0:25.",
+  )
+  expect((await shown("+79035550000 → 600")).description).toBe(
+    "Incoming call to 600: went to voicemail after ringing 101 Анна Смирнова, 102 Борис Кузнецов.",
+  )
 })
 
 it("a sync links the caller to the b24 contact with the same mobile number", async () => {

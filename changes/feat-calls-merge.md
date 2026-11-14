@@ -1,3 +1,8 @@
+### Added
+
+- Each call's description says what became of it, for `meetings show`, search, WireCat Desktop and an agent: `Incoming
+  call to 600: answered by 101 Анна Смирнова after 0:03, talk 0:24. 102 Борис Кузнецов did not answer.`
+
 ### Changed — may break callers
 
 - One call is one meeting. Every CDR row of a call (a ring group's members, a queue, a transfer) is joined by its

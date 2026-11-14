@@ -63,10 +63,56 @@ const titleOf = (call: PhoneCall, region: string | null) => {
     : `${label(from, call.direction === "internal")} → ${label(to, true)}`
 }
 
-const meetingOf = (call: PhoneCall, region: string | null): SourceMeeting => {
+const clock = (ms: number) => {
+  const seconds = Math.round(ms / 1000)
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+}
+
+const OUTCOMES = { voicemail: "went to voicemail", busy: "busy", no_answer: "not answered", failed: "failed" } as const
+
+/**
+ * What became of the call, in a sentence: `meetings show`, search, Desktop and an agent read the description, never
+ * the metadata.
+ */
+export const describe = (call: PhoneCall, names: ReadonlyMap<string, string>, region: string | null): string => {
+  const who = (number: string) => [number, names.get(number)].filter(Boolean).join(" ")
+  const caller = call.legs[0]?.call.from
+  const kinds: Record<string, string> = {
+    incoming: "Incoming call",
+    outgoing: "Outgoing call",
+    internal: "Internal call",
+  }
+  const kind = kinds[call.direction ?? ""]
+  const target =
+    call.direction === "outgoing"
+      ? call.client
+        ? (e164(call.client.number, region) ?? call.client.number)
+        : null
+      : call.dialed
+  const head = `${kind ?? "Call"}${target ? ` to ${target}` : ""}`
+  const placed = call.direction !== "incoming" && caller?.internal ? ` from ${who(caller.number)}` : ""
+  const rang = call.rang.map(who).join(", ")
+  const answered =
+    call.outcome === "answered"
+      ? `answered${
+          call.direction === "outgoing"
+            ? ""
+            : ` by ${call.answeredBy
+                .filter((one) => one !== caller?.number)
+                .map(who)
+                .join(", then ")}`
+        }` +
+        `${call.waitMs === null ? "" : ` after ${clock(call.waitMs)}`}, talk ${clock(call.talkMs ?? 0)}` +
+        (rang ? `. ${rang} did not answer` : "")
+      : `${OUTCOMES[call.outcome]}${rang ? `${call.outcome === "busy" ? " at" : " after ringing"} ${rang}` : ""}`
+  return `${head}${placed}: ${answered}.`
+}
+
+const meetingOf = (call: PhoneCall, region: string | null, names: ReadonlyMap<string, string>): SourceMeeting => {
   const [first] = call.legs as [Leg, ...Leg[]]
   return {
     series: null,
+    description: describe(call, names, region),
     occurrence: {
       id: call.id,
       seriesId: call.id,
@@ -159,7 +205,7 @@ export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: 
       const calls = callsOf(read.rows, options.extension)
       names = extensionNames(calls.flatMap(({ legs }) => legs))
       for (const call of calls) seen.set(call.id, call)
-      return calls.map((call) => meetingOf(call, options.phoneRegion))
+      return calls.map((call) => meetingOf(call, options.phoneRegion, names))
     },
     participants: async (id) => {
       const call = seen.get(id)
