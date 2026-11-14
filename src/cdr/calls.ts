@@ -25,7 +25,9 @@ export interface PhoneCall {
   /** What the caller dialled first: an extension, a ring group, a queue or an outside number. */
   dialed: string | null
   outcome: Outcome
-  /** The extensions that talked on the call, in the order they answered. */
+  /** The extension that placed an outgoing or internal call. */
+  placedBy: string | null
+  /** The extensions that picked the call up, in the order they answered. */
   answeredBy: string[]
   /** Extensions that rang and did not answer. */
   rang: string[]
@@ -71,17 +73,13 @@ const outcomeOf = (legs: readonly Leg[]): Outcome => {
   return "no_answer"
 }
 
-/** The extension a leg reached or, on an outgoing leg, the one that placed it. */
-const employeeOf = ({ call }: Leg): string | null =>
-  call.to?.internal ? call.to.number : call.from?.internal ? call.from.number : null
-
 const summary = (id: string, legs: Leg[]): PhoneCall => {
   const [first] = legs as [Leg, ...Leg[]]
   const answered = legs.filter(talked)
-  const answeredBy = [
-    ...new Set(answered.toSorted((a, b) => (a.row.answer ?? 0) - (b.row.answer ?? 0)).map(employeeOf)),
-  ]
-  const people = answeredBy.filter((one): one is string => one !== null)
+  const answeredBy = answered
+    .toSorted((a, b) => (a.row.answer ?? 0) - (b.row.answer ?? 0))
+    .map(({ call }) => (call.to?.internal ? call.to.number : null))
+  const people = [...new Set(answeredBy.filter((one): one is string => one !== null))]
   const rang = [
     ...new Set(
       legs
@@ -109,6 +107,7 @@ const summary = (id: string, legs: Leg[]): PhoneCall => {
     direction,
     client,
     dialed: first.row.dst,
+    placedBy: direction !== "incoming" && first.call.from?.internal ? first.call.from.number : null,
     outcome: outcomeOf(legs),
     answeredBy: people,
     rang,

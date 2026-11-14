@@ -23,6 +23,7 @@ it("joins the office's 29 CDR rows into its 12 calls, each with what became of i
     direction: call.direction,
     outcome: call.outcome,
     answeredBy: call.answeredBy,
+    placedBy: call.placedBy,
     rang: call.rang,
     waitS: call.waitMs === null ? null : call.waitMs / 1000,
     talkS: call.talkMs === null ? null : call.talkMs / 1000,
@@ -43,9 +44,11 @@ it("joins the office's 29 CDR rows into its 12 calls, each with what became of i
   expect(at("79161112233", "103")).toEqual([
     expect.objectContaining({ direction: "incoming", outcome: "answered", answeredBy: ["101", "103"], waitS: 2 }),
   ])
-  expect(at("101", "102")).toEqual([expect.objectContaining({ direction: "internal", answeredBy: ["102"] })])
+  expect(at("101", "102")).toEqual([
+    expect.objectContaining({ direction: "internal", placedBy: "101", answeredBy: ["102"] }),
+  ])
   expect(at("101", "74951234567")).toEqual([
-    expect.objectContaining({ direction: "outgoing", outcome: "answered", answeredBy: ["101"] }),
+    expect.objectContaining({ direction: "outgoing", outcome: "answered", placedBy: "101", answeredBy: [] }),
   ])
   expect(at("102", "74959990000")).toEqual([
     expect.objectContaining({ direction: "outgoing", outcome: "no_answer", answeredBy: [] }),
@@ -55,7 +58,7 @@ it("joins the office's 29 CDR rows into its 12 calls, each with what became of i
   ])
   expect(at("anonymous", "600")).toEqual([expect.objectContaining({ outcome: "answered", answeredBy: ["102"] })])
   expect(at("102", "79035550000")).toEqual([
-    expect.objectContaining({ direction: "outgoing", outcome: "answered", answeredBy: ["102"] }),
+    expect.objectContaining({ direction: "outgoing", outcome: "answered", placedBy: "102", answeredBy: [] }),
   ])
 })
 
@@ -132,22 +135,19 @@ it("a sync links the caller to the b24 contact with the same mobile number", asy
   })
 })
 
-it("a sync replaces the row meetings older versions kept with the whole call", async () => {
-  await office()
-  expect((await sync()).code).toBe(0)
+const oldRowMeeting = async (externalId: string, startedAt: string) => {
   const store = await openAsteriskStore(process.env)
   try {
     const [call] = await store.meetings.meetings({})
-    const now = Date.now()
     await store.meetings.saveMeeting({
       meeting: {
         accountId: call?.accountId as number,
-        externalId: "1794625502.3#3",
+        externalId,
         title: "+79161234567 → 600",
         description: null,
         location: null,
         joinUrl: null,
-        startedAt: Date.parse("2026-11-14T03:05:02Z"),
+        startedAt: Date.parse(startedAt),
         endedAt: null,
         durationMs: null,
         timezone: null,
@@ -155,14 +155,54 @@ it("a sync replaces the row meetings older versions kept with the whole call", a
         metadata: {},
         deletedAt: null,
       },
-      now,
+      now: Date.now(),
     })
   } finally {
     await store.close()
   }
+}
+
+const count = async () =>
+  ((await runCli(["office", "meetings", "list", "--limit", "50", "--json"])).json().items as unknown[]).length
+
+it("a sync replaces the row meetings older versions kept for the rows it read", async () => {
+  await office()
+  expect((await sync()).code).toBe(0)
+  await oldRowMeeting("1794625502.3#3", "2026-11-14T03:05:02Z")
+  expect(await count()).toBe(13)
   const synced = await sync()
   expect(synced.code, synced.err).toBe(0)
   expect(synced.err).toContain("1 meetings of single call records")
-  const list = await runCli(["office", "meetings", "list", "--limit", "50", "--json"])
-  expect(list.json().items).toHaveLength(12)
+  expect(await count()).toBe(12)
+})
+
+it("a sync keeps an older row meeting whose rows it did not read again", async () => {
+  await office()
+  expect((await sync()).code).toBe(0)
+  await oldRowMeeting("1762000000.1#1", "2026-11-01T12:00:00Z")
+  const synced = await runCli(["office", "meetings", "sync", "--json"])
+  expect(synced.code, synced.err).toBe(0)
+  expect(await count()).toBe(13)
+})
+
+it("extension 101 of two PBXs is two people, not one", async () => {
+  await office()
+  const root = asteriskFolder({ "Master.csv": OFFICE })
+  for (const [key, value] of Object.entries({ cdr_csv_path: join(root, "Master.csv"), cdr_timezone: ZONE }))
+    expect((await runCli(["branch", "config", "set", key, value, "--json"])).code).toBe(0)
+  expect((await sync()).code).toBe(0)
+  const branch = await runCli(["branch", "meetings", "sync", "--since-time", "2026-11-01T00:00:00Z", "--json"])
+  expect(branch.code, branch.err).toBe(0)
+  const anna = async (profile: string) => {
+    const list = await runCli([profile, "meetings", "list", "--limit", "50", "--json"])
+    const id = (list.json().items as { id: string; title: string }[]).find((one) => one.title === "101 → 102")?.id
+    const shown = (await runCli([profile, "meetings", "show", String(id), "--json"])).json() as {
+      item: { item: { participants: { name: string | null; person: { ref: string } }[] } }
+    }
+    return shown.item.item.participants.find(({ name }) => name === "Анна Смирнова")?.person.ref
+  }
+  const [office101, branch101] = [await anna("office"), await anna("branch")]
+  expect(office101).toBeDefined()
+  expect(branch101).toBeDefined()
+  expect(office101).not.toBe(branch101)
 })

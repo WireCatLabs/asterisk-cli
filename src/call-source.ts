@@ -26,6 +26,8 @@ export interface CdrRows {
 }
 
 export interface CallSourceOptions {
+  /** The profile: extension 101 of one PBX is not extension 101 of another. */
+  profile: string
   phoneRegion: string | null
   extension: RegExp
   recording?: ((row: CdrRow) => Promise<Recording | null>) | undefined
@@ -55,7 +57,7 @@ const legOf = ({ row }: Leg) => ({
 const titleOf = (call: PhoneCall, region: string | null) => {
   const [first] = call.legs as [Leg, ...Leg[]]
   const to = call.answeredBy.at(-1) ?? (call.rang.length === 1 ? call.rang[0] : null) ?? call.dialed
-  const from = call.direction === "outgoing" ? (call.answeredBy[0] ?? first.call.from?.number) : first.call.from?.number
+  const from = call.placedBy ?? first.call.from?.number
   const label = (number: string | null | undefined, internal: boolean) =>
     !number ? "?" : internal ? number : (e164(number, region) ?? number)
   return call.direction === "outgoing"
@@ -76,7 +78,7 @@ const OUTCOMES = { voicemail: "went to voicemail", busy: "busy", no_answer: "not
  */
 export const describe = (call: PhoneCall, names: ReadonlyMap<string, string>, region: string | null): string => {
   const who = (number: string) => [number, names.get(number)].filter(Boolean).join(" ")
-  const caller = call.legs[0]?.call.from
+  const caller = call.placedBy
   const kinds: Record<string, string> = {
     incoming: "Incoming call",
     outgoing: "Outgoing call",
@@ -90,18 +92,11 @@ export const describe = (call: PhoneCall, names: ReadonlyMap<string, string>, re
         : null
       : call.dialed
   const head = `${kind ?? "Call"}${target ? ` to ${target}` : ""}`
-  const placed = call.direction !== "incoming" && caller?.internal ? ` from ${who(caller.number)}` : ""
+  const placed = caller ? ` from ${who(caller)}` : ""
   const rang = call.rang.map(who).join(", ")
   const answered =
     call.outcome === "answered"
-      ? `answered${
-          call.direction === "outgoing"
-            ? ""
-            : ` by ${call.answeredBy
-                .filter((one) => one !== caller?.number)
-                .map(who)
-                .join(", then ")}`
-        }` +
+      ? `answered${call.direction === "outgoing" ? "" : ` by ${call.answeredBy.map(who).join(", then ")}`}` +
         `${call.waitMs === null ? "" : ` after ${clock(call.waitMs)}`}, talk ${clock(call.talkMs ?? 0)}` +
         (rang ? `. ${rang} did not answer` : "")
       : `${OUTCOMES[call.outcome]}${rang ? `${call.outcome === "busy" ? " at" : " after ringing"} ${rang}` : ""}`
@@ -125,6 +120,7 @@ const meetingOf = (call: PhoneCall, region: string | null, names: ReadonlyMap<st
       outcome: call.outcome,
       disposition: first.row.disposition,
       dialed: call.dialed,
+      placedBy: call.placedBy,
       answeredBy: call.answeredBy,
       rang: call.rang,
       waitMs: call.waitMs,
@@ -142,11 +138,11 @@ const meetingOf = (call: PhoneCall, region: string | null, names: ReadonlyMap<st
 
 const NONE = { joinedAt: null, leftAt: null, durationMs: null, sessions: null, metadata: {} }
 
-const participantOf = (party: Party, region: string | null): SourceParticipant => {
+const participantOf = (party: Party, region: string | null, profile: string): SourceParticipant => {
   if (party.internal)
     return {
       ...NONE,
-      identityExternalId: `extension:${party.number}`,
+      identityExternalId: `extension:${profile}/${party.number}`,
       email: null,
       displayName: party.name,
       externalId: party.number,
@@ -192,10 +188,24 @@ const recordingOf = (found: Recording, durationMs: number | null, where: string)
  * the metadata. Its people are the outside party and each extension that talked; its attachments are the recordings of
  * its legs, by their paths. A file is never copied, changed or deleted.
  */
-export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: string }): MeetingSource => {
+/** A call source that also tells which CDR rows it read into calls, and from when. */
+export interface CallSource extends MeetingSource {
+  read(): { rowIds: ReadonlySet<string>; since: number | null }
+}
+
+export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: string }): CallSource => {
   const seen = new Map<string, PhoneCall>()
   let names = new Map<string, string>()
   return {
+    read: () => {
+      const calls = [...seen.values()]
+      return {
+        rowIds: new Set(calls.flatMap(({ legs }) => legs.map(({ row }) => row.id))),
+        since: calls.length
+          ? calls.reduce((least, call) => Math.min(least, call.start), Number.POSITIVE_INFINITY)
+          : null,
+      }
+    },
     provider: PROVIDER_NAME,
     name: "Asterisk",
     overlapMs: OVERLAP_MS,
@@ -212,10 +222,16 @@ export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: 
       if (!call) return null
       const employees = staffOf(call)
       const staff = employees.map((number) =>
-        participantOf({ number, internal: true, name: names.get(number) ?? null }, options.phoneRegion),
+        participantOf(
+          { number, internal: true, name: names.get(number) ?? null },
+          options.phoneRegion,
+          options.profile,
+        ),
       )
       const client =
-        call.client && isDialable(call.client.number) ? [participantOf(call.client, options.phoneRegion)] : []
+        call.client && isDialable(call.client.number)
+          ? [participantOf(call.client, options.phoneRegion, options.profile)]
+          : []
       return call.direction === "outgoing" ? [...staff, ...client] : [...client, ...staff]
     },
     transcript: async () => null,
@@ -238,19 +254,23 @@ export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: 
   }
 }
 
-/** The extension that placed the call, if one did, and every extension that talked on it. */
-const staffOf = (call: PhoneCall) => {
-  const [first] = call.legs as [Leg, ...Leg[]]
-  const caller = first.call.from?.internal ? [first.call.from.number] : []
-  return [...new Set([...caller, ...call.answeredBy])]
-}
+/** The extension that placed the call, if one did, and every extension that picked it up. */
+const staffOf = (call: PhoneCall) => [...new Set([...(call.placedBy ? [call.placedBy] : []), ...call.answeredBy])]
 
-/** Versions up to 0.3.0 kept one meeting per CDR row, `<uniqueid>#<sequence>`; the call that replaced it holds them. */
-const ROW_MEETING = /#/
-
-/** Marks the row meetings of older versions deleted, so no call shows twice. Their transcripts go with them. */
-export const retireRowMeetings = async (store: MeetingStore, accountId: number, now: number): Promise<number> => {
-  const old = (await store.meetings({ accountId })).filter(({ externalId }) => ROW_MEETING.test(externalId))
+/**
+ * Marks deleted the meetings 0.3.0 and older kept per CDR row, `<uniqueid>#<sequence>`, for the rows this sync read
+ * into whole calls. An older call stays as it was until a sync reads its rows again, so none goes missing.
+ */
+export const retireRowMeetings = async (
+  store: MeetingStore,
+  accountId: number,
+  read: { rowIds: ReadonlySet<string>; since: number | null },
+  now: number,
+): Promise<number> => {
+  if (read.since === null || read.rowIds.size === 0) return 0
+  const old = (await store.meetings({ accountId, since: read.since })).filter(({ externalId }) =>
+    read.rowIds.has(externalId),
+  )
   for (const { id, createdAt, updatedAt, meetingSeriesId, eventId, ...meeting } of old)
     await store.saveMeeting({ meeting: { ...meeting, deletedAt: now }, now })
   return old.length

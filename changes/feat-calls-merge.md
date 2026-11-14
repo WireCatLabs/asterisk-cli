@@ -1,16 +1,17 @@
 ### Added
 
-- Each call's description says what became of it, for `meetings show`, search, WireCat Desktop and an agent: `Incoming
+- Each call's description says what became of it, for `meetings show`, WireCat Desktop and an agent: `Incoming
   call to 600: answered by 101 Анна Смирнова after 0:03, talk 0:24. 102 Борис Кузнецов did not answer.`
 
 ### Changed — may break callers
 
 - One call is one meeting. Every CDR row of a call (a ring group's members, a queue, a transfer) is joined by its
-  `linkedid`, and the meeting's id is that `linkedid`. Its people are the caller and each employee who talked; its
-  metadata says what became of it (`outcome`: answered, voicemail, busy, no_answer, failed), who answered
-  (`answeredBy`), who rang without answering (`rang`), what was dialled, the wait before the first answer
-  (`waitMs`), the talk time (`talkMs`) and every leg. The next sync marks the one-row meetings of 0.3.0 and older
-  deleted; a transcript made of one of them is made again by `meetings transcribe`.
+  `linkedid`, and the meeting's id is that `linkedid`. Its people are the caller, the employee who placed it and each
+  one who answered; its metadata says what became of it (`outcome`: answered, voicemail, busy, no_answer, failed),
+  who placed it (`placedBy`) and who answered (`answeredBy`), who rang without answering (`rang`), what was dialled, the wait before the first answer
+  (`waitMs`), the talk time (`talkMs`) and every leg. The one-row meetings of 0.3.0 and older are marked
+  deleted once a sync reads their rows again into a call; `meetings sync --since-time <first call>` reads them all.
+  A transcript made of a row meeting is made again by `meetings transcribe`.
 
 ### Fixed
 
@@ -22,3 +23,5 @@
   and employees are named from the caller ID of the calls they make.
 - A build starts from an empty `dist/`, so a renamed file no longer ships: 0.3.0 carried an unused
   `dist/bin/asterisk.js`.
+- Extension 101 of one profile and extension 101 of another are two people: an employee's identity is now
+  `extension:<profile>/<number>`, so two offices' staff no longer merge into one person.

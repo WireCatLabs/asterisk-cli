@@ -46,8 +46,8 @@ Owner, 2026-11-12.
   or Queue bridged it with talk time: VoiceMail, Busy and Hangup rows also say `ANSWERED`. The wait is taken from the
   first answered Dial leg, since a queue answers the caller before any person does. The outcome, who answered, who
   rang, the wait, the talk time and the legs are in the metadata, and a sentence in the description, which is what
-  `meetings show`, Desktop and agents read. 0.3.0 kept `uniqueid#sequence` meetings; the next sync marks them
-  deleted.
+  `meetings show`, Desktop and agents read. 0.3.0 kept `uniqueid#sequence` meetings; a sync marks one deleted when
+  it reads that row into a call, so a call older than the sync's window is never lost.
 - **No series.** A meeting series in cli-core is a recurring meeting; the legs of a call are not that.
 - **Direction** comes from the extension pattern applied to the channel's peer, then to the number, and from the
   `from-trunk`, `from-pstn`, `from-did` contexts. Nothing else is guessed.

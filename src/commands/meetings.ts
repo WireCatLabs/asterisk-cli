@@ -19,10 +19,11 @@ import {
   writeNewFile,
   writesNewFileOnlyWith,
 } from "@wirecat/cli-core/cli"
-import type { MeetingSource, MeetingStore } from "@wirecat/cli-core/meetings"
+import type { MeetingStore } from "@wirecat/cli-core/meetings"
 import { addMeetingCommands, type MeetingCommandDeps } from "@wirecat/cli-core/meetings/cli"
 import type { MessageStore } from "@wirecat/cli-core/store"
 import { Command } from "commander"
+import type { CallSource } from "../call-source.js"
 import type { CdrRow } from "../cdr/record.js"
 import { configuration } from "../config.js"
 import type { OpenedSource } from "../context.js"
@@ -38,7 +39,7 @@ interface Opened {
   env: NodeJS.ProcessEnv
   asterisk: () => Promise<OpenedSource>
   files: () => Promise<FileAccess>
-  source: () => MeetingSource
+  source: () => CallSource
   close: () => Promise<void>
 }
 
@@ -177,7 +178,12 @@ export const meetingsMount = () => {
       program.hook("postAction", async () => {
         if (opened && action && pathOf(action).join(" ") === "meetings sync") {
           const { retireRowMeetings } = await import("../call-source.js")
-          const retired = await retireRowMeetings(opened.store.meetings, opened.accountId, Date.now())
+          const retired = await retireRowMeetings(
+            opened.store.meetings,
+            opened.accountId,
+            opened.source().read(),
+            Date.now(),
+          )
           if (retired > 0)
             environmentOf(action).streams?.diagnostic(
               `${retired} meetings of single call records, kept by pbx 0.3.0 and older, gave way to whole calls`,
@@ -219,7 +225,7 @@ export const meetingsMount = () => {
       // Still tracked: a command that fails never reaches postAction.
       run.trackCloseable?.({ close })
       const opening = () => (asterisk ??= openSource(at))
-      let source: MeetingSource | undefined
+      let source: CallSource | undefined
       let finder: ((row: CdrRow) => Promise<Recording | null>) | undefined
       opened = {
         store,
@@ -234,6 +240,7 @@ export const meetingsMount = () => {
           source = callSource(
             { rows: async (since) => (await opening()).reader.rows(since) },
             {
+              profile: settings.profile as string,
               phoneRegion,
               extension,
               where: files.kind,
