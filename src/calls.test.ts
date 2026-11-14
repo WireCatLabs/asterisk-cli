@@ -61,13 +61,13 @@ const externalIds = async () => {
   }
 }
 
-it("imports each CDR row of Master.csv as a meeting, its times read in the CDR's zone", async () => {
+it("imports each call of Master.csv as a meeting, its times read in the CDR's zone", async () => {
   await office()
   const synced = await sync()
   expect(synced.code, synced.err).toBe(0)
 
   const calls = await listed()
-  expect(calls).toHaveLength(6)
+  expect(calls).toHaveLength(5)
   const first = calls.find(({ title }) => title === "+79000000001 → 101")
   expect(first?.started_at).toBe("2026-10-31T09:00:00.000Z")
   expect(calls.map(({ title }) => title)).toContain("102 → +79000000002")
@@ -78,7 +78,7 @@ it("a second sync of the same file adds nothing, and a new row is added once", a
   await office()
   expect((await sync()).code).toBe(0)
   expect((await sync()).code).toBe(0)
-  expect(await listed()).toHaveLength(6)
+  expect(await listed()).toHaveLength(5)
 
   const at = (offsetMs: number) =>
     `${wallClock("Europe/Moscow").time(new Date(Date.now() - offsetMs).toISOString())}:00`
@@ -90,17 +90,20 @@ it("a second sync of the same file adds nothing, and a new row is added once", a
   )
   const again = await runCli(["office", "meetings", "sync", "--json"])
   expect(again.code, again.err).toBe(0)
-  expect(await listed()).toHaveLength(7)
+  expect(await listed()).toHaveLength(6)
 })
 
-it("keeps the two legs of a transferred call apart: one uniqueid, two sequences, two meetings", async () => {
+it("joins the two legs of a transferred call into one meeting, with both employees who talked", async () => {
   await office()
   expect((await sync()).code).toBe(0)
   const legs = (await listed()).filter(({ title }) => title.startsWith("+79000000004"))
-  expect(legs.map(({ title }) => title).sort()).toEqual(["+79000000004 → 101", "+79000000004 → 103"])
-  expect((await externalIds()).filter((id) => id.startsWith("1761912000.41#")).sort()).toEqual([
-    "1761912000.41#41",
-    "1761912000.41#42",
+  expect(legs.map(({ title }) => title)).toEqual(["+79000000004 → 103"])
+  expect(await externalIds()).toContain("1761912000.41")
+  const shown = JSON.parse(await details(legs[0]?.id as string))
+  expect(shown.item.item.participants.map(({ role }: { role: string }) => role)).toEqual([
+    "client",
+    "manager",
+    "manager",
   ])
 })
 
@@ -131,7 +134,7 @@ it("skips a row it cannot read, says so, and imports the rest", async () => {
   const synced = await sync()
   expect(synced.code, synced.err).toBe(0)
   expect(synced.err).toContain("1 call records could not be read")
-  expect(await listed()).toHaveLength(6)
+  expect(await listed()).toHaveLength(5)
 })
 
 it("names the setting to fill when the profile has no source yet", async () => {

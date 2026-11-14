@@ -101,7 +101,7 @@ it("syncs Master.csv and links recordings over SFTP, and transcribes a recording
   })
   expect(synced.code, synced.err).toBe(0)
   const listed = await runCli(["office", "meetings", "list", "--json"], { keyring })
-  expect(listed.json().items).toHaveLength(6)
+  expect(listed.json().items).toHaveLength(5)
   const speech: Speech = {
     findModel: ((id: string) => ({ id })) as Speech["findModel"],
     isInstalled: () => true,

@@ -102,7 +102,7 @@ const bodyOf = (command: Command, value: unknown) => {
   return itemOf(snakeKeys(value))
 }
 
-/** The shared `meetings` commands over Asterisk's call records: one CDR row is one meeting, for this profile only. */
+/** The shared `meetings` commands over Asterisk's call records: one call is one meeting, for this profile only. */
 export const meetingsMount = () => {
   const commands = new Set<Command>()
   let action: Command | undefined
@@ -175,6 +175,14 @@ export const meetingsMount = () => {
       })
       // WC-LIFE-4: a close that fails can change the answer, so the store closes before anything is printed.
       program.hook("postAction", async () => {
+        if (opened && action && pathOf(action).join(" ") === "meetings sync") {
+          const { retireRowMeetings } = await import("../call-source.js")
+          const retired = await retireRowMeetings(opened.store.meetings, opened.accountId, Date.now())
+          if (retired > 0)
+            environmentOf(action).streams?.diagnostic(
+              `${retired} meetings of single call records, kept by pbx 0.3.0 and older, gave way to whole calls`,
+            )
+        }
         await opened?.close()
         for (const answer of answers.splice(0)) answer()
       })

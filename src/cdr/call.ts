@@ -22,6 +22,13 @@ export interface Call {
 export const peerOf = (channel: string | null): string | null =>
   /^local\//i.test(channel ?? "") ? null : (/^[^/]+\/([^-@;/]+)/.exec(channel ?? "")?.[1] ?? null)
 
+/**
+ * Who a leg reached: the peer of a phone channel, or the extension a `Local/101@…` channel dialled. A ring group or a
+ * queue reaches its members that way, and the row's `dst` keeps the group's number, or after a transfer the new one.
+ */
+export const reachedOf = (channel: string | null): string | null =>
+  peerOf(channel) ?? /^local\/([^@/]+)@/i.exec(channel ?? "")?.[1] ?? null
+
 /** `anonymous`, `s`, `Restricted`: what a CDR writes for no number. Only something dialable is a person. */
 export const isDialable = (number: string): boolean =>
   /^\+?[\d\s().-]+$/.test(number) && /\d{3}/.test(number.replace(/\D/g, ""))
@@ -48,7 +55,9 @@ export const callOf = (row: CdrRow, extension: RegExp): Call => {
     return number ? { number, internal: false, name: null } : null
   }
   const from = sideOf(row.channel, row.src)
-  const to = sideOf(row.dstchannel, row.dst)
+  const reached = reachedOf(row.dstchannel)
+  const to =
+    reached && extension.test(reached) ? { number: reached, internal: true, name: null } : sideOf(null, row.dst)
   if (from) from.name = callerName(row.clid, row.src)
   const direction: Direction | null =
     from?.internal && to?.internal

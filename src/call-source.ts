@@ -1,6 +1,13 @@
 import { e164Of } from "@wirecat/cli-core"
-import type { MeetingSave, MeetingSource, SourceMeeting, SourceParticipant } from "@wirecat/cli-core/meetings"
-import { type Call, callOf, isDialable, type Party } from "./cdr/call.js"
+import type {
+  MeetingSave,
+  MeetingSource,
+  MeetingStore,
+  SourceMeeting,
+  SourceParticipant,
+} from "@wirecat/cli-core/meetings"
+import { isDialable, type Party } from "./cdr/call.js"
+import { callsOf, extensionNames, type Leg, type PhoneCall } from "./cdr/calls.js"
 import type { CdrRow } from "./cdr/record.js"
 import type { Recording } from "./recordings.js"
 
@@ -29,35 +36,63 @@ export interface CallSourceOptions {
 /** The form WhatsApp, MAX and the CRMs keep, so the caller is one `phone:` identity across them. */
 const e164 = (number: string, region: string | null) => e164Of(number, region ?? undefined) ?? null
 
-const labelOf = (party: Party | null, region: string | null) =>
-  party ? (party.internal ? party.number : (e164(party.number, region) ?? party.number)) : "?"
-
-/** `+79161234567 → 101`: the two sides as the CDR names them, the outside one in E.164 when it can be read so. */
-const titleOf = ({ from, to }: Call, region: string | null) => `${labelOf(from, region)} → ${labelOf(to, region)}`
-
-const meetingOf = (row: CdrRow, call: Call, region: string | null): SourceMeeting => ({
-  series: null,
-  occurrence: {
-    id: row.id,
-    seriesId: row.id,
-    title: titleOf(call, region),
-    startedAt: new Date(row.start).toISOString(),
-    endedAt: row.end === null ? null : new Date(row.end).toISOString(),
-  },
-  metadata: {
-    direction: call.direction,
-    disposition: row.disposition,
-    durationMs: row.durationMs,
-    answeredMs: row.billMs,
-    uniqueid: row.uniqueid,
-    linkedid: row.linkedid,
-    sequence: row.sequence,
-    dcontext: row.dcontext,
-    accountcode: row.accountcode,
-    lastapp: row.lastapp,
-    userfield: row.userfield,
-  },
+const legOf = ({ row }: Leg) => ({
+  uniqueid: row.uniqueid,
+  sequence: row.sequence,
+  start: new Date(row.start).toISOString(),
+  answer: row.answer === null ? null : new Date(row.answer).toISOString(),
+  end: row.end === null ? null : new Date(row.end).toISOString(),
+  src: row.src,
+  dst: row.dst,
+  channel: row.channel,
+  dstchannel: row.dstchannel,
+  dcontext: row.dcontext,
+  lastapp: row.lastapp,
+  disposition: row.disposition,
+  billMs: row.billMs,
 })
+
+const titleOf = (call: PhoneCall, region: string | null) => {
+  const [first] = call.legs as [Leg, ...Leg[]]
+  const to = call.answeredBy.at(-1) ?? (call.rang.length === 1 ? call.rang[0] : null) ?? call.dialed
+  const from = call.direction === "outgoing" ? (call.answeredBy[0] ?? first.call.from?.number) : first.call.from?.number
+  const label = (number: string | null | undefined, internal: boolean) =>
+    !number ? "?" : internal ? number : (e164(number, region) ?? number)
+  return call.direction === "outgoing"
+    ? `${label(from, true)} → ${label(call.client?.number, false)}`
+    : `${label(from, call.direction === "internal")} → ${label(to, true)}`
+}
+
+const meetingOf = (call: PhoneCall, region: string | null): SourceMeeting => {
+  const [first] = call.legs as [Leg, ...Leg[]]
+  return {
+    series: null,
+    occurrence: {
+      id: call.id,
+      seriesId: call.id,
+      title: titleOf(call, region),
+      startedAt: new Date(call.start).toISOString(),
+      endedAt: call.end === null ? null : new Date(call.end).toISOString(),
+    },
+    metadata: {
+      direction: call.direction,
+      outcome: call.outcome,
+      disposition: first.row.disposition,
+      dialed: call.dialed,
+      answeredBy: call.answeredBy,
+      rang: call.rang,
+      waitMs: call.waitMs,
+      talkMs: call.talkMs,
+      answeredMs: call.talkMs,
+      durationMs: call.end === null ? null : call.end - call.start,
+      uniqueid: first.row.uniqueid,
+      linkedid: first.row.linkedid,
+      accountcode: first.row.accountcode,
+      userfield: call.legs.map(({ row }) => row.userfield).find(Boolean) ?? null,
+      legs: call.legs.map(legOf),
+    },
+  }
+}
 
 const NONE = { joinedAt: null, leftAt: null, durationMs: null, sessions: null, metadata: {} }
 
@@ -76,6 +111,8 @@ const participantOf = (party: Party, region: string | null): SourceParticipant =
     ...NONE,
     identityExternalId: phone ? `phone:${phone}` : `number:${party.number.replace(/\s/g, "")}`,
     email: null,
+    // What cli-core matches the caller by to the CRM contact or messenger person with the same number.
+    phone,
     displayName: party.name,
     externalId: null,
     role: "client",
@@ -105,12 +142,13 @@ const recordingOf = (found: Recording, durationMs: number | null, where: string)
 })
 
 /**
- * CDR rows as meetings for cli-core's `pull`: one row is one meeting, its id the row's own, so legs of one transferred
- * call stay apart and keep their `uniqueid` and `linkedid` in the metadata. A recording is the meeting's attachment,
- * by its path; the file itself is never copied, changed or deleted.
+ * CDR rows as meetings for cli-core's `pull`: one call is one meeting, its id the call's `linkedid`, with every leg in
+ * the metadata. Its people are the outside party and each extension that talked; its attachments are the recordings of
+ * its legs, by their paths. A file is never copied, changed or deleted.
  */
 export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: string }): MeetingSource => {
-  const seen = new Map<string, { row: CdrRow; call: Call }>()
+  const seen = new Map<string, PhoneCall>()
+  let names = new Map<string, string>()
   return {
     provider: PROVIDER_NAME,
     name: "Asterisk",
@@ -118,27 +156,56 @@ export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: 
     meetings: async (since) => {
       const read = await rows.rows(Date.parse(since))
       if (read.skipped > 0) options.skipped?.(read.skipped)
-      return read.rows.map((row) => {
-        const call = callOf(row, options.extension)
-        seen.set(row.id, { row, call })
-        return meetingOf(row, call, options.phoneRegion)
-      })
+      const calls = callsOf(read.rows, options.extension)
+      names = extensionNames(calls.flatMap(({ legs }) => legs))
+      for (const call of calls) seen.set(call.id, call)
+      return calls.map((call) => meetingOf(call, options.phoneRegion))
     },
     participants: async (id) => {
-      const found = seen.get(id)
-      if (!found) return null
-      return [found.call.from, found.call.to]
-        .filter((party): party is Party => party !== null && (party.internal || isDialable(party.number)))
-        .map((party) => participantOf(party, options.phoneRegion))
+      const call = seen.get(id)
+      if (!call) return null
+      const employees = staffOf(call)
+      const staff = employees.map((number) =>
+        participantOf({ number, internal: true, name: names.get(number) ?? null }, options.phoneRegion),
+      )
+      const client =
+        call.client && isDialable(call.client.number) ? [participantOf(call.client, options.phoneRegion)] : []
+      return call.direction === "outgoing" ? [...staff, ...client] : [...client, ...staff]
     },
     transcript: async () => null,
     chat: async () => null,
     summary: async () => null,
     files: async (id): Promise<NonNullable<MeetingSave["attachments"]> | null> => {
-      const found = seen.get(id)
-      if (!found || !options.recording) return null
-      const recording = await options.recording(found.row)
-      return recording ? [recordingOf(recording, found.row.billMs, options.where)] : null
+      const call = seen.get(id)
+      if (!call || !options.recording) return null
+      const found = new Map<string, Recording>()
+      for (const { row } of call.legs) {
+        const recording = await options.recording(row)
+        if (recording && !found.has(recording.path)) found.set(recording.path, recording)
+      }
+      const attachments = [...found.values()].map((recording, position) => ({
+        ...recordingOf(recording, call.talkMs, options.where),
+        position,
+      }))
+      return attachments.length ? attachments : null
     },
   }
+}
+
+/** The extension that placed the call, if one did, and every extension that talked on it. */
+const staffOf = (call: PhoneCall) => {
+  const [first] = call.legs as [Leg, ...Leg[]]
+  const caller = first.call.from?.internal ? [first.call.from.number] : []
+  return [...new Set([...caller, ...call.answeredBy])]
+}
+
+/** Versions up to 0.3.0 kept one meeting per CDR row, `<uniqueid>#<sequence>`; the call that replaced it holds them. */
+const ROW_MEETING = /#/
+
+/** Marks the row meetings of older versions deleted, so no call shows twice. Their transcripts go with them. */
+export const retireRowMeetings = async (store: MeetingStore, accountId: number, now: number): Promise<number> => {
+  const old = (await store.meetings({ accountId })).filter(({ externalId }) => ROW_MEETING.test(externalId))
+  for (const { id, createdAt, updatedAt, meetingSeriesId, eventId, ...meeting } of old)
+    await store.saveMeeting({ meeting: { ...meeting, deletedAt: now }, now })
+  return old.length
 }

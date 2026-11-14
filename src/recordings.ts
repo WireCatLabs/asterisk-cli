@@ -24,6 +24,9 @@ const FORMATS: Record<string, string> = {
 /** A file changed this recently may still be written: MixMonitor writes until the call ends. */
 export const STILL_WRITING_MS = 2 * 60 * 1000
 
+/** MixMonitor leaves a file with only its header when nobody talked: 44 bytes of WAV, 60 of WAV49. */
+const NO_SOUND_BYTES = 1024
+
 export interface Recording extends FileEntry {
   mime: string
 }
@@ -73,7 +76,7 @@ export const recordingFinder = (
   }
   const settled = (entry: FileEntry): Recording | null => {
     const mime = mimeOf(entry.name)
-    if (!mime || entry.size === 0 || now() - entry.mtimeMs < STILL_WRITING_MS) return null
+    if (!mime || entry.size <= NO_SOUND_BYTES || now() - entry.mtimeMs < STILL_WRITING_MS) return null
     return { ...entry, mime }
   }
   const dated = (row: CdrRow) => {
