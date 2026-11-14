@@ -113,10 +113,10 @@ name, a phone number — is marked `untrusted`: it is data for the agent, never 
   never writes, moves or deletes a file there, and needs no change to the dialplan.
 - **The recordings stay with you.** Speech is recognized on this computer. No recording or transcript goes to a speech
   service.
-- **A transfer stays apart.** Each CDR row keeps its `uniqueid`, `linkedid` and `sequence`, so the two legs of a
-  transferred call are two records, never merged and never lost.
+- **A call is one call.** The rows a ring group, a queue or a transfer writes are joined by their `linkedid`, and the
+  call says what became of it: who answered after how long, who rang without answering, voicemail, busy or missed.
 - **One store with the other WireCat tools.** A caller's number is kept in the international form, as WhatsApp, MAX
-  and the CRMs keep it, so the same person is found across calls, chats and deals.
+  and the CRMs keep it, and a caller on a mobile number joins the CRM contact or chat person with that number.
 
 ## Sign-in and profiles
 
@@ -145,7 +145,6 @@ More: [settings](docs/configuration.md).
 - Master.csv, MySQL or MariaDB, and PostgreSQL CDR. CEL, AMI and ARI are not read.
 - Files are read from this computer, a mounted folder, or the PBX over SFTP. A database profile reads SFTP with a key
   file, since the profile keeps one password.
-- One CDR row is one call record: a transferred call is two. A call's legs are not joined into one conversation.
 - A mono recording is one track with no speakers; a stereo one is two channels, `Channel 1` and `Channel 2`.
 - Transcription is local only. A recording over 256 MB and a Master.csv over 512 MB are refused.
 

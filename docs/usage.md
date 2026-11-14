@@ -15,8 +15,14 @@ command without one stops with exit code 2 and lists the profiles on this comput
 
 ## Calls are meetings
 
-Each CDR row is one meeting in the WireCat store. Its title is the two sides, `+79000000001 → 101`; its people are
-the extension (`manager`) and the outside number (`client`); its recording is an attachment.
+Each call is one meeting in the WireCat store, however many CDR rows its ring group, queue or transfer wrote. Its title
+is the two sides, `+79000000001 → 101`; its people are the outside number (`client`) and each extension that placed
+or answered it (`manager`); its recordings are attachments. Its description says what became of it:
+
+```text
+Incoming call to 600: answered by 101 Анна Смирнова after 0:03, talk 0:24. 102 Борис Кузнецов did not answer.
+Incoming call to 600: went to voicemail after ringing 101 Анна Смирнова, 102 Борис Кузнецов.
+```
 
 ```sh
 pbx office meetings sync                                  # import what is new

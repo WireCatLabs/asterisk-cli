@@ -40,10 +40,14 @@ Owner, 2026-11-12.
 
 ## Decisions
 
-- **One CDR row is one meeting.** Its external id is `uniqueid#sequence`, or `uniqueid#<digest of the row>` without a
-  sequence, or `row-<digest>` without a uniqueid. Asterisk writes several rows with one uniqueid for a transfer (the
-  CDR specification's examples show it), so the uniqueid alone would merge the legs. `linkedid` stays in the
-  metadata; joining legs into one conversation is out of scope.
+- **One call is one meeting** (NEED-2607, 14.11.2026). The rows that share a `linkedid`, or a `uniqueid` without one,
+  are one call, and the meeting's external id is that value. A ring group, a queue and a transfer each write a row per
+  leg, so one row per meeting showed the twelve calls of `bin/dev-pbx` as 29. A leg counts as answered only when Dial
+  or Queue bridged it with talk time: VoiceMail, Busy and Hangup rows also say `ANSWERED`. The wait is taken from the
+  first answered Dial leg, since a queue answers the caller before any person does. The outcome, who answered, who
+  rang, the wait, the talk time and the legs are in the metadata, and a sentence in the description, which is what
+  `meetings show`, Desktop and agents read. 0.3.0 kept `uniqueid#sequence` meetings; the next sync marks them
+  deleted.
 - **No series.** A meeting series in cli-core is a recurring meeting; the legs of a call are not that.
 - **Direction** comes from the extension pattern applied to the channel's peer, then to the number, and from the
   `from-trunk`, `from-pstn`, `from-did` contexts. Nothing else is guessed.
@@ -67,5 +71,4 @@ Owner, 2026-11-12.
 
 ## Open questions for the owner
 
-- Whether to join the legs of one call (`linkedid`) into one conversation for agents.
 - Whether `files_from sftp` should also read the CDR database through an SSH tunnel of its own.
