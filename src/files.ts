@@ -1,3 +1,4 @@
+import { createReadStream } from "node:fs"
 import { readdir, readFile, stat } from "node:fs/promises"
 import { join } from "node:path"
 import { CliError } from "@wirecat/cli-base"
@@ -16,6 +17,8 @@ export interface FileAccess {
   /** The files of a folder, without its subfolders; an empty list when the folder is missing. */
   list(folder: string): Promise<FileEntry[]>
   read(path: string, maxBytes: number): Promise<Uint8Array>
+  /** The file piece by piece, for one too large to hold in memory. */
+  stream(path: string): AsyncIterable<Uint8Array>
   close(): Promise<void>
 }
 
@@ -73,11 +76,17 @@ export const localFiles = (): FileAccess => ({
       throw unreadable(error)
     })
     if (found.size > maxBytes) throw tooLarge(maxBytes)
-    return new Uint8Array(
-      await readFile(path).catch((error: unknown) => {
-        throw unreadable(error)
-      }),
-    )
+    return readFile(path).catch((error: unknown) => {
+      throw unreadable(error)
+    })
+  },
+  stream: async function* (path) {
+    try {
+      yield* createReadStream(path, { highWaterMark: 1024 * 1024 })
+    } catch (error) {
+      if (missing(error)) throw new CliError("not_found", "the file is not there any more", { reason: "file.missing" })
+      throw unreadable(error)
+    }
   },
   close: async () => {},
 })

@@ -21,6 +21,9 @@ const SOURCE_ENTRIES = {
   db_tls: v.optional(v.boolean(plain("has to be true or false"))),
   recordings_path: v.optional(text("the folder of the call recordings")),
   recordings_pattern: v.optional(text("a file pattern with {uniqueid}, {linkedid} or {yyyy}/{mm}/{dd}")),
+  recordings_channels: v.optional(
+    v.picklist(["caller,employee", "employee,caller"], plain("has to be caller,employee or employee,caller")),
+  ),
   files_from: v.optional(v.picklist(["local", "sftp"], plain("has to be local or sftp"))),
   sftp_host: v.optional(text("the SFTP server's host name")),
   sftp_port: v.optional(port),

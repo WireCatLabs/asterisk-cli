@@ -7,11 +7,28 @@ import {
   transcribeMeeting,
 } from "@wirecat/cli-core/meetings"
 import type { Pcm } from "@wirecat/cli-core/speech"
-import { callTranscriptionSource, type Recognition, type Recognize } from "./call-transcription.js"
+import { callTranscriptionSource, type Recognition, type Recognize, speakersOf } from "./call-transcription.js"
 import type { FileAccess } from "./files.js"
+import type { RecordingSide } from "./source.js"
 
-/** An hour of 16-bit stereo WAV at 48 kHz is about 690 MB; a business call is far shorter. */
-export const LARGEST_RECORDING = 256 * 1024 * 1024
+/**
+ * cli-core decodes a recording from its whole bytes, so the file is held in memory. WAV, GSM, M4A and SLN go through
+ * ffmpeg, whose output stops at an hour of speech: a 690 MB hour of 48 kHz stereo WAV peaked at 1.4 GB, and an hour
+ * of 32-bit samples is about 1.4 GB, so 2 GB lets every hour-long WAV through.
+ */
+// One byte under 2 GiB: Node's readFile refuses a file of 2 GiB or more.
+export const LARGEST_RECORDING = 2 * 1024 * 1024 * 1024 - 1
+
+/**
+ * MP3, Ogg, Opus and FLAC are decoded whole by bundled decoders before cli-core checks the hour, so a file decodes to
+ * many times its size first: 256 MB of MP3 at 128 kbit/s is over 4 hours, about 5.6 GB of samples.
+ */
+export const LARGEST_COMPRESSED_RECORDING = 256 * 1024 * 1024
+
+const ROUTED_TO_FFMPEG = new Set(["wav", "gsm", "m4a", "sln"])
+
+export const largestRecording = (name: string) =>
+  ROUTED_TO_FFMPEG.has(name.split(".").pop()?.toLowerCase() ?? "") ? LARGEST_RECORDING : LARGEST_COMPRESSED_RECORDING
 
 export interface TranscribeOptions {
   /** Which stored calls, in `meetings list`'s query language. */
@@ -43,6 +60,8 @@ export interface TranscribePorts {
   decode: (bytes: Uint8Array) => Promise<Pcm[]>
   recognize: Recognize
   recognition: Recognition
+  /** Which side is on which channel of a stereo recording, when the owner set `recordings_channels`. */
+  sides?: readonly RecordingSide[] | null
 }
 
 const recordingOf = (attachments: readonly Attachment[]) => {
@@ -73,24 +92,25 @@ export const transcribeCalls = async (
     const details = await store.meeting(call.id)
     if (!details || (!options.replace && details.transcripts.length > 0)) continue
     const recording = recordingOf(details.attachments)
-    if (recording) pending.push({ call, recording })
+    if (recording) pending.push({ call, recording, speakers: speakersOf(details, ports.sides ?? null) })
     else report.without_recording++
   }
   const shown = Math.min(pending.length, options.limit)
-  for (const [index, { call, recording }] of pending.entries()) {
+  for (const [index, { call, recording, speakers }] of pending.entries()) {
     if (index >= options.limit || options.signal?.aborted) {
       report.remaining = pending.length - index
       report.stopped = index < options.limit
       break
     }
     try {
-      const bytes = await (await ports.files()).read(recording.path, LARGEST_RECORDING)
+      const bytes = await (await ports.files()).read(recording.path, largestRecording(recording.name))
       const channels = await ports.decode(bytes)
       const format = recording.name.split(".").pop()?.toLowerCase() ?? "audio"
       const source = callTranscriptionSource(bytes, channels, {
         format,
         recognize: ports.recognize,
         recognition: ports.recognition,
+        speakers,
       })
       await transcribeMeeting(
         source,

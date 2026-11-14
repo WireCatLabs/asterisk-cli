@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { callerName, callOf, isDialable, peerOf } from "./call.js"
-import { csvColumns, csvLines, csvRows } from "./csv.js"
+import { csvColumns, csvLines, csvParser, csvRows } from "./csv.js"
 import { cdrRow } from "./record.js"
 
 const base = Array.from({ length: 16 }, () => "")
@@ -27,6 +27,18 @@ describe("Master.csv columns", () => {
       ['a "b"', "c,d", "3"],
       ["e", "", ""],
     ])
+  })
+
+  it("reads the same rows whatever piece boundaries the text arrives in", () => {
+    const text = '"a ""b""","line one\r\nline two",3\r\n"Иван ""Тестов""","",\r"x"\n\n"last","no newline"'
+    const whole = [...csvLines(text)]
+    expect(whole).toHaveLength(4)
+    for (let at = 0; at <= text.length; at++)
+      for (let next = at; next <= text.length; next += 3) {
+        const parser = csvParser()
+        const pieces = [text.slice(0, at), text.slice(at, next), text.slice(next)]
+        expect([...pieces.flatMap(parser.push), ...parser.end()]).toEqual(whole)
+      }
   })
 
   it("skips a line with another count, such as one still being written", () => {

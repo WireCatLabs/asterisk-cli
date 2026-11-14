@@ -9,6 +9,7 @@ import * as v from "valibot"
 import { configuration } from "../config.js"
 import type { FileAccess } from "../files.js"
 import { IDENTITY } from "../identity.js"
+import { sourceOf } from "../source.js"
 import type { TranscribeReport } from "../transcribe-calls.js"
 import { DEFAULT_SPEECH_MODEL } from "./models.js"
 
@@ -112,6 +113,7 @@ export const transcribeCommand = (deps: TranscribeDeps): Command => {
     const { transcribeCalls } = await import("../transcribe-calls.js")
     const recognition = speech.localSpeechRecognitionModel(model)
     const signal = deps.signal()
+    const sides = sourceOf(context.settings).recordingSides
     // Unbounded: run() already stops this cooperative command at its deadline by its signal, and it answers with what
     // it finished; the run's own deadline would throw that answer away instead.
     const report = await context.run(
@@ -124,6 +126,7 @@ export const transcribeCommand = (deps: TranscribeDeps): Command => {
             decode: async (bytes) => (await speech.decodeChannels(bytes)).channels,
             recognize: (pcm) => speech.recognizeLocalPieces(model, pcm, { env, ...(signal ? { signal } : {}) }),
             recognition: { engine: recognition.engine, model: recognition.model, version: recognition.version },
+            sides,
           },
           {
             query,
