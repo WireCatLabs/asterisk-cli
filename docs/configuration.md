@@ -13,7 +13,7 @@ pbx office config unset cdr_csv_path
 
 ## The source
 
-What each setting means is on [connect your Asterisk](asterisk.md).
+What each setting means is on [install and connect](installation.md).
 
 | Setting | Default | What it is |
 | --- | --- | --- |

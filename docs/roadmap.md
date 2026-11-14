@@ -10,7 +10,7 @@ feature: it may already be on the way. The order can change, and there are no da
 table in a read-only session. It reads the files from this computer, a mounted folder, or the PBX over SFTP with a
 pinned server key. It keeps each call in the local WireCat store with its caller and the employees who placed or answered it, links it to its recording, and
 turns recordings into text on your computer. You and your agent list, read and export the calls with no network, over
-the command line or MCP. See [connect your Asterisk](asterisk.md).
+the command line or MCP. See [install and connect](installation.md).
 
 ## Later
 

@@ -6,7 +6,7 @@ What WireCat CLIs share — the keyring, permissions, MCP and what never reaches
 `pbx` keeps its settings in `config.json` and its state in the folders `pbx doctor` shows. It reads the PBX
 and never writes to it: Master.csv and the recordings are opened for reading only, and a database session is opened
 read-only and sends a `SELECT` of the CDR table, with values as parameters. Give it a user that may do no more, as
-[connect your Asterisk](asterisk.md#a-cdr-database) shows, and keep the database and AMI off the internet.
+[connect your Asterisk](installation.md#a-cdr-database) shows, and keep the database and AMI off the internet.
 
 `session start` keeps a database password in the OS keyring, or in a private file where no keyring works. The password
 is read hidden or from stdin, never from the command line, and is checked before it is kept. It goes only to the

@@ -10,7 +10,7 @@ promised, and which calls nobody answered, from Claude Code, Codex or any MCP cl
 Your company's phone calls from an Asterisk PBX (FreePBX, Issabel, VitalPBX or plain Asterisk), with their recordings
 transcribed on your computer, searchable offline, and ready for any agent, within limits you set.
 
-[Documentation](docs/index.md) · [Connect your Asterisk](docs/asterisk.md) · [Commands](docs/commands.md) ·
+[Documentation](docs/index.md) · [Install and connect](docs/installation.md) · [Commands](docs/commands.md) ·
 [WireCat](https://wirecat.dev)
 
 [![npm](https://img.shields.io/npm/v/@wirecat/asterisk-cli)](https://www.npmjs.com/package/@wirecat/asterisk-cli)
@@ -57,7 +57,7 @@ new, and a repeated sync never makes a call twice.
 You need Node.js 22.16 or a later 22.x, or Node.js 24 or later, and `ffmpeg` to transcribe WAV and GSM recordings.
 The command is `pbx`, also installed as `wcat-pbx`. It is not `asterisk`, so it never hides the PBX's own program.
 
-More: [installation](docs/installation.md) · [connect your Asterisk](docs/asterisk.md).
+More: [install and connect](docs/installation.md) · [use it](docs/usage.md).
 
 ## What you can do
 
@@ -134,7 +134,7 @@ says so once. `PBX_TOKEN` in the environment is read first.
 
 ## Settings and permissions
 
-The settings of each source are in [connect your Asterisk](docs/asterisk.md); `pbx office config show` lists
+The settings of each source are in [install and connect](docs/installation.md); `pbx office config show` lists
 them. Each command has a permission key, its path: `meetings.sync`, `meetings.transcribe`. Each is `allow`, `ask`,
 `readonly` or `deny`. `PBX_READ_ONLY=1` refuses every command that changes your sign-in or settings.
 
@@ -173,7 +173,7 @@ More: [when something goes wrong](docs/troubleshooting.md).
 
 | Section | Pages |
 |---|---|
-| Start | [overview](docs/index.md) · [installation](docs/installation.md) · [connect your Asterisk](docs/asterisk.md) · [use it](docs/usage.md) |
+| Start | [overview](docs/index.md) · [install and connect](docs/installation.md) · [use it](docs/usage.md) |
 | Reference | [all commands](docs/commands.md) · [settings and permissions](docs/configuration.md) |
 | If something is wrong | [when something goes wrong](docs/troubleshooting.md) · [security](docs/security.md) |
 | Project | [compared with other tools](docs/compare.md) · [roadmap](docs/roadmap.md) · [CHANGELOG.md](CHANGELOG.md) |

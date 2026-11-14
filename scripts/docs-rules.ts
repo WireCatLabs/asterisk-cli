@@ -12,4 +12,7 @@ export const docsRules = (root: string): DocsRules => ({
   files: markdownFiles(root, new Set(["node_modules", "dist", "coverage", ".git"])),
   ids: JOURNAL_IDS,
   userPage: (name) => USER_PAGES.test(name.replaceAll("\\", "/")),
+  // 0.2.0's released changelog links the page folded into installation.md; a tagged section may not be edited, and
+  // wirecat.dev redirects the old address.
+  skipLink: (target) => target.replaceAll("\\", "/") === "docs/asterisk.md",
 })

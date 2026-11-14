@@ -4,6 +4,7 @@
   "ignorePaths": ["docs/commands.md", "docs/dev/**"],
   "words": [
     "asterisk",
+    "Bitrix",
     "whatsapp-cli",
     "tg-cli",
     "max-cli",
