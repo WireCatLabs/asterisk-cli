@@ -182,6 +182,17 @@ it("only the profile's own setting sends audio away: one in the shared defaults 
   expect(done.err).not.toContain("leaves this computer")
 })
 
+it("openai without the local voice detector refuses before any audio is read or sent, naming the download", async () => {
+  await configure({ transcribe_engine: "openai" })
+  const seen: unknown[] = []
+  const done = await transcribe([], {
+    speech: speech({ cloudSpeech: cloud(seen), vadPath: () => "/nowhere/vad.onnx" }),
+  })
+  expect(done.json()).toMatchObject({ error: { reason: "model.not-downloaded" } })
+  expect(done.err).toContain("pbx models download gigaam-v3")
+  expect(done.err).not.toContain("leaves this computer")
+})
+
 it("openai without a key refuses before any recording is read, and names the variable that gives it", async () => {
   await configure({ transcribe_engine: "openai" })
   const { cloudSpeech } = await import("@wirecat/cli-core/speech")

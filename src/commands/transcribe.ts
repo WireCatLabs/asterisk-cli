@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { CliError, isCliError } from "@wirecat/cli-base"
 import { annotate } from "@wirecat/cli-base/commands"
 import { defineQuery, fieldsHelp, parseLucene, validateQuery } from "@wirecat/cli-base/query"
@@ -22,6 +23,7 @@ export type Speech = Pick<
   | "decodeChannelsFile"
   | "recognizeLocalPieces"
   | "cloudSpeech"
+  | "vadPath"
 >
 
 /** A test hands in its own speech engine here; the real one needs a model hundreds of MB large. */
@@ -133,6 +135,14 @@ export const transcribeCommand = (deps: TranscribeDeps): Command => {
       notify: deps.progress,
       signal,
     })
+    // cli-core finds the speech with the local voice detector before it sends a piece; without it every call fails.
+    if (cloud && !existsSync(speech.vadPath(speech.modelsDirectory(env))))
+      throw new CliError(
+        "not_found",
+        `the voice detector that finds the speech before it is sent is not on this computer; it comes with any ` +
+          `local speech model: ${IDENTITY.command} models download ${DEFAULT_SPEECH_MODEL}`,
+        { reason: "model.not-downloaded" },
+      )
     if (!cloud) {
       const chosen = speech.findModel(model)
       if (!chosen)

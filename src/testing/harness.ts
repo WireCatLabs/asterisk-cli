@@ -110,5 +110,7 @@ export const fakeSpeech = (overrides: Partial<Speech> = {}): Speech => ({
     { start: 3.5, end: 6, text: "оплатим в пятницу" },
   ],
   cloudSpeech: () => null,
+  // Any file that exists stands for the downloaded voice detector.
+  vadPath: () => process.execPath,
   ...overrides,
 })
