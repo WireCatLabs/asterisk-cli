@@ -22,8 +22,9 @@ export const IDENTITY: AppIdentity = {
 export const DESKTOP: ManifestIdentity = {
   ...IDENTITY,
   docs: "https://wirecat.dev/en/docs/pbx",
-  hosts: [],
-  userHosts: "the Asterisk CDR database or SFTP server you set up",
+  // Reached only when a profile sets transcribe_engine openai, through cli-core's speech code.
+  hosts: ["api.openai.com"],
+  userHosts: "the Asterisk CDR database, its SSH server or the SFTP server you set up",
   tagline: "Asterisk calls and recordings, searchable",
   syncs: "call records and their recordings",
   signIn: {

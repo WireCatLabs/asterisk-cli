@@ -674,6 +674,7 @@
   },
   "network": {
     "hosts": [
+      "api.openai.com",
       "registry.npmjs.org",
       "huggingface.co",
       "*.huggingface.co",
@@ -681,7 +682,7 @@
       "github.com",
       "*.githubusercontent.com"
     ],
-    "user_hosts": "the Asterisk CDR database or SFTP server you set up"
+    "user_hosts": "the Asterisk CDR database, its SSH server or the SFTP server you set up"
   },
   "desktop": {
     "tagline": "Asterisk calls and recordings, searchable",

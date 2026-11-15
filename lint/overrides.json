@@ -5,12 +5,5 @@
     "reason": "Keeps the short pbx command beside wcat-pbx, as zm, beeline, gcal and mail do.",
     "owner": "@WireCatLabs",
     "review_after": "2027-05-13"
-  },
-  {
-    "rule": "command-help-too-long",
-    "target": "meetings embed",
-    "reason": "cli-core's addMeetingEmbeddingCommand writes this summary; it is shortened in cli-core, not here.",
-    "owner": "@WireCatLabs",
-    "review_after": "2027-02-15"
   }
 ]

@@ -327,9 +327,12 @@ you turn it on for that profile; a setting in the shared `defaults` does not tur
 ```sh
 pbx office config set transcribe_engine openai
 pbx office config set transcribe_model gpt-transcribe        # optional; gpt-transcribe when not set
-export OPENAI_API_KEY=…                                       # the service's key, for the run
-pbx office meetings transcribe
+OPENAI_API_KEY="$(secret-tool lookup service openai)" pbx office meetings transcribe
 ```
+
+The key is given for that one run, read from your keyring, so it never lands in the shell history. On macOS,
+`security find-generic-password -s openai -w` reads it in place of `secret-tool`. Keep it under whatever name your
+keyring uses.
 
 What leaves your computer: the speech of each recording, in pieces of at most ten minutes, sent to
 `api.openai.com`, or to the OpenAI-compatible address of WireCat's shared AI model when another WireCat tool set one.
