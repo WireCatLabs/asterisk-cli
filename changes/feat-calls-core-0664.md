@@ -23,6 +23,8 @@
   [cloud transcription](../docs/installation.md#cloud-transcription).
 - **`meetings show` prints a WireCat Desktop link for the call** in the terminal, `wirecat://open/v1/meeting/…`. It
   opens the call once Desktop supports links to calls.
+- **`meetings show` names each recording's file on this computer** in `local_path`, so WireCat Desktop can play it.
+  It is `null` when the recording is read over SFTP. This comes with cli-core 0.668.0.
 - **Master.csv and the recordings of any size over SFTP.** They are read in pieces, and a connection that breaks is
   opened again where it stopped. A recording on the phone system is copied into a private temporary file for the
   time it is read, and deleted after. A WAV, GSM or M4A recording of any size is transcribed, up to an hour of audio.

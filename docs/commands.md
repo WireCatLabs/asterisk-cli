@@ -173,7 +173,7 @@ pbx meetings transcript <meeting> [options]
 |---|---|
 | `--history` | include superseded transcript versions. |
 
-**Returns:** meeting transcript — ref, meeting, source, language, superseded_at, created_at, lines; every field: pbx commands info meetings transcript
+**Returns:** meeting transcript — ref, meeting, source, language, superseded_at, created_at, lines, untrusted; every field: pbx commands info meetings transcript
 
 **Example:** `pbx office meetings transcript 1 --json`
 
@@ -189,7 +189,7 @@ pbx meetings summary <meeting>
 |---|---|---|
 | `meeting` | required | stored meeting id. |
 
-**Returns:** meeting summary — id, meeting, source, title, overview, sections, next_steps, content, and 3 more; every field: pbx commands info meetings summary
+**Returns:** meeting summary — id, meeting, source, title, overview, sections, next_steps, content, and 4 more; every field: pbx commands info meetings summary
 
 **Next usually:** `pbx meetings show <meeting>`, `pbx meetings transcript <meeting>`, `pbx meetings export <meeting>`
 
@@ -215,7 +215,7 @@ pbx meetings export <meeting> [options]
 | `--transcript-id <id>` | export a specific transcript version. |
 | `--output <file>` | write content to a new file through the host's writer. |
 
-**Returns:** meeting export — meeting_id, format, filename, content, output; every field: pbx commands info meetings export
+**Returns:** meeting export — meeting_id, format, filename, content, untrusted, output; every field: pbx commands info meetings export
 
 **Example:** `pbx office meetings export 1 --format markdown --json`
 

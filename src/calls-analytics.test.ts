@@ -127,13 +127,16 @@ it("tags add --matching marks every call the search finds, a rerun changes nothi
   expect(vip.items).toHaveLength(1)
 })
 
-it("meetings show draws the call's WireCat Desktop link for a person, and leaves the JSON as it is", async () => {
+it("meetings show draws the call's WireCat Desktop link for a person, and names the recording's file on this computer", async () => {
   const id = ids["+79000000001 → 101"] ?? ""
   const shown = await runCli(["office", "meetings", "show", id], { tty: true })
   expect(shown.code, shown.err).toBe(0)
   expect(shown.out).toContain("Open in WireCat Desktop: wirecat://open/v1/meeting/asterisk/office/1761901200.11")
   const json = body(await pbx("meetings", "show", id))
   expect(JSON.stringify(json)).not.toContain("wirecat://")
+  const [recording] = (json.item as { attachments: { kind: string; local_path: string | null }[] }).attachments
+  expect(recording?.kind).toBe("recording")
+  expect(recording?.local_path?.endsWith(IN_CALL)).toBe(true)
   const off = await runCli(["office", "meetings", "show", id], { tty: true, env: { WIRECAT_LINKS: "off" } })
   expect(off.out).not.toContain("wirecat://")
 })
