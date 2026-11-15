@@ -6,12 +6,6 @@ import type { FileAccess, FileEntry } from "./files.js"
 import { IDENTITY } from "./identity.js"
 import type { SftpPlace } from "./source.js"
 
-/**
- * cli-core's SFTP client reads a file whole, with no stream yet, so `stream` holds the whole file and stops at this
- * size. Larger than years of a busy office's Master.csv.
- */
-export const LARGEST_SFTP_STREAM = 512 * 1024 * 1024
-
 export type OpenSftp = (options: SftpOptions) => Promise<SftpClient>
 
 const missing = (error: unknown) => isCliError(error) && error.details.reason === "file.not-found"
@@ -24,29 +18,38 @@ const entryOf = (path: string, entry: SftpEntry): FileEntry => ({
 })
 
 /**
- * The SFTP server's key, unknown until the owner confirms it: the error names the fingerprint the server sent and the
- * command that pins it, so the owner compares it with `ssh-keygen -lf` on the PBX first.
+ * An SFTP or SSH server's key, unknown until the owner confirms it: the error names the fingerprint the server sent
+ * and the command that pins it, so the owner compares it with `ssh-keygen -lf` on the server first.
  */
-export const hostKeyRefusal = (profile: string, key: { algorithm: string; fingerprint: string }) =>
+export const hostKeyRefusal = (
+  profile: string,
+  key: { algorithm: string; fingerprint: string },
+  { setting, what }: { setting: string; what: string } = { setting: "sftp_host_key", what: "SFTP server" },
+) =>
   new CliError(
     "configuration_error",
-    `the SFTP server's ${key.algorithm} key is ${key.fingerprint}. Check it on the PBX with ` +
+    `the ${what}'s ${key.algorithm} key is ${key.fingerprint}. Check it on the server with ` +
       `\`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub\`, then pin it: ` +
-      `${IDENTITY.command} ${profile} config set sftp_host_key ${key.fingerprint}`,
+      `${IDENTITY.command} ${profile} config set ${setting} ${key.fingerprint}`,
     { reason: "sftp.host-key-missing" },
   )
 
-const authOf = async (place: SftpPlace, password: string | undefined): Promise<SftpAuth> => {
+/** The key file the setting names, or else the password `session start` kept. */
+export const authOf = async (
+  place: Pick<SftpPlace, "keyPath">,
+  password: string | undefined,
+  setting = "sftp_key_path",
+): Promise<SftpAuth> => {
   if (place.keyPath) {
     const privateKey = await readFile(place.keyPath).catch(() => {
-      throw new CliError("configuration_error", "the key file set in sftp_key_path cannot be read", {
+      throw new CliError("configuration_error", `the key file set in ${setting} cannot be read`, {
         reason: "source.bad-setting",
       })
     })
     return { privateKey }
   }
   if (!password)
-    throw new CliError("authentication_error", "this profile has no SFTP password yet; run session start", {
+    throw new CliError("authentication_error", "this profile has no password for that server yet; run session start", {
       reason: "profile.not-signed-in",
     })
   return { password }
@@ -91,10 +94,7 @@ export const sftpFiles = async (
         throw error
       }
     },
-    read: (path, maxBytes) => client.readFile(path, { maxBytes }),
-    stream: async function* (path) {
-      yield await client.readFile(path, { maxBytes: LARGEST_SFTP_STREAM })
-    },
+    stream: (path) => client.readStream(path),
     close: () => client.close(),
   }
 }

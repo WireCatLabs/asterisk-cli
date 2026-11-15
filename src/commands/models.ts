@@ -4,12 +4,15 @@ import { IDENTITY } from "../identity.js"
 
 export const DEFAULT_SPEECH_MODEL = "gigaam-v3"
 
-/** The speech models `meetings transcribe` uses, in the folder every WireCat CLI shares. */
+/**
+ * The speech models `meetings transcribe` uses, and the text models search by meaning uses, in the folder every
+ * WireCat CLI shares.
+ */
 export const modelsCommand = (): Command => {
   let running: Command | undefined
   const environment = () => (running ? environmentOf(running) : {})
   const models = modelCatalogueCommand(IDENTITY, {
-    kinds: ["audio"],
+    kinds: ["audio", "text"],
     env: () => environment().env ?? process.env,
     output: (answer, command) => renderAnswer(command, outputFor(command), answer),
     diagnostic: (line) => environment().streams?.diagnostic(line),

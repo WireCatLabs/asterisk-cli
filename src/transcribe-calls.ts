@@ -1,3 +1,10 @@
+import { createHash } from "node:crypto"
+import { createWriteStream } from "node:fs"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { extname, join } from "node:path"
+import { Readable, Writable } from "node:stream"
+import { pipeline } from "node:stream/promises"
 import { isCliError } from "@wirecat/cli-base"
 import type { QueryAst } from "@wirecat/cli-base/query"
 import {
@@ -10,25 +17,6 @@ import type { Pcm } from "@wirecat/cli-core/speech"
 import { callTranscriptionSource, type Recognition, type Recognize, speakersOf } from "./call-transcription.js"
 import type { FileAccess } from "./files.js"
 import type { RecordingSide } from "./source.js"
-
-/**
- * cli-core decodes a recording from its whole bytes, so the file is held in memory. WAV, GSM, M4A and SLN go through
- * ffmpeg, whose output stops at an hour of speech: a 690 MB hour of 48 kHz stereo WAV peaked at 1.4 GB, and an hour
- * of 32-bit samples is about 1.4 GB, so 2 GB lets every hour-long WAV through.
- */
-// One byte under 2 GiB: Node's readFile refuses a file of 2 GiB or more.
-export const LARGEST_RECORDING = 2 * 1024 * 1024 * 1024 - 1
-
-/**
- * MP3, Ogg, Opus and FLAC are decoded whole by bundled decoders before cli-core checks the hour, so a file decodes to
- * many times its size first: 256 MB of MP3 at 128 kbit/s is over 4 hours, about 5.6 GB of samples.
- */
-export const LARGEST_COMPRESSED_RECORDING = 256 * 1024 * 1024
-
-const ROUTED_TO_FFMPEG = new Set(["wav", "gsm", "m4a", "sln"])
-
-export const largestRecording = (name: string) =>
-  ROUTED_TO_FFMPEG.has(name.split(".").pop()?.toLowerCase() ?? "") ? LARGEST_RECORDING : LARGEST_COMPRESSED_RECORDING
 
 export interface TranscribeOptions {
   /** Which stored calls, in `meetings list`'s query language. */
@@ -57,7 +45,8 @@ export interface TranscribePorts {
   store: MeetingStore & MeetingTranscriptReceiptStore
   accountId: number
   files: () => Promise<FileAccess>
-  decode: (bytes: Uint8Array) => Promise<Pcm[]>
+  /** The channels of a recording on this computer, read by its path. */
+  decode: (path: string) => Promise<Pcm[]>
   recognize: Recognize
   recognition: Recognition
   /** Which side is on which channel of a stereo recording, when the owner set `recordings_channels`. */
@@ -68,6 +57,44 @@ const recordingOf = (attachments: readonly Attachment[]) => {
   const found = attachments.find(({ kind }) => kind === "recording")
   const path = (found?.providerRef as { path?: unknown } | null)?.path
   return found && typeof path === "string" ? { path, name: found.name ?? path } : null
+}
+
+interface LocalRecording {
+  path: string
+  hash: string
+  size: number
+  dispose(): Promise<void>
+}
+
+/**
+ * The recording as a file on this computer, hashed as it is read. A file on the server is streamed to a private
+ * temporary file, so a recording of any size is never held in memory; it is deleted once the call is done.
+ */
+const localRecording = async (files: FileAccess, path: string): Promise<LocalRecording> => {
+  const hash = createHash("sha256")
+  let size = 0
+  const counted = async function* () {
+    for await (const piece of files.stream(path)) {
+      hash.update(piece)
+      size += piece.byteLength
+      yield piece
+    }
+  }
+  if (files.where === "local") {
+    await pipeline(Readable.from(counted()), new Writable({ write: (_piece, _encoding, done) => done() }))
+    return { path, hash: hash.digest("hex"), size, dispose: async () => {} }
+  }
+  // No caller's number in the temporary name; the extension stays, since ffmpeg reads a raw GSM or SLN file by it.
+  const folder = await mkdtemp(join(tmpdir(), "pbx-recording-"))
+  const copy = join(folder, `call${extname(path).toLowerCase()}`)
+  const dispose = () => rm(folder, { recursive: true, force: true })
+  try {
+    await pipeline(Readable.from(counted()), createWriteStream(copy, { flags: "wx", mode: 0o600 }))
+  } catch (error) {
+    await dispose()
+    throw error
+  }
+  return { path: copy, hash: hash.digest("hex"), size, dispose }
 }
 
 /** Calls the query names that have a recording and no transcript yet, newest first; one that fails is reported. */
@@ -103,21 +130,25 @@ export const transcribeCalls = async (
       break
     }
     try {
-      const bytes = await (await ports.files()).read(recording.path, largestRecording(recording.name))
-      const channels = await ports.decode(bytes)
-      const format = recording.name.split(".").pop()?.toLowerCase() ?? "audio"
-      const source = callTranscriptionSource(bytes, channels, {
-        format,
-        recognize: ports.recognize,
-        recognition: ports.recognition,
-        speakers,
-      })
-      await transcribeMeeting(
-        source,
-        store,
-        { accountId, externalId: call.externalId, now: (options.now ?? Date.now)() },
-        { apply: true },
-      )
+      const local = await localRecording(await ports.files(), recording.path)
+      try {
+        const channels = await ports.decode(local.path)
+        const format = recording.name.split(".").pop()?.toLowerCase() ?? "audio"
+        const source = callTranscriptionSource(local, channels, {
+          format,
+          recognize: ports.recognize,
+          recognition: ports.recognition,
+          speakers,
+        })
+        await transcribeMeeting(
+          source,
+          store,
+          { accountId, externalId: call.externalId, now: (options.now ?? Date.now)() },
+          { apply: true },
+        )
+      } finally {
+        await local.dispose()
+      }
       report.transcribed++
       report.audio_seconds += Math.round((call.durationMs ?? 0) / 1000)
       options.progress?.(`${index + 1}/${shown} meeting ${call.id} transcribed`)

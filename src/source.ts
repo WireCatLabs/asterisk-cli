@@ -23,13 +23,15 @@ export interface SourceConfig {
   /** Set by the owner: which side the dialplan records on which channel, so a transcript names who said what. */
   recordingSides: RecordingSide[] | null
   files: { kind: "local" } | ({ kind: "sftp" } & SftpPlace)
+  /** A database source only: the SSH server that forwards to a database listening only on its own server. */
+  tunnel: SftpPlace | null
   zone: string
   phoneRegions: string[]
   extension: RegExp
 }
 
-/** Which secret `session start` asks for: the database's password, or the SFTP password when no key file is set. */
-export type SecretKind = "db" | "sftp" | null
+/** A password `session start` asks for: the database's, the SFTP user's, or the SSH tunnel user's. */
+export type SecretKind = "db" | "sftp" | "ssh"
 
 type Values = Partial<Record<SourceSetting, string | number | boolean>>
 
@@ -132,6 +134,16 @@ export const sourceOf = (settings: Settings): SourceConfig => {
             hostKey: text(values, "sftp_host_key"),
           }
         : { kind: "local" },
+    tunnel:
+      kind !== "csv" && text(values, "db_ssh_host")
+        ? {
+            host: text(values, "db_ssh_host") as string,
+            port: number(values, "db_ssh_port"),
+            user: need(profile, values, "db_ssh_user", "wirecat"),
+            keyPath: text(values, "db_ssh_key_path"),
+            hostKey: text(values, "db_ssh_host_key"),
+          }
+        : null,
     zone: zoneOf(text(values, "cdr_timezone")),
     phoneRegions: [
       ...new Set(
@@ -145,8 +157,18 @@ export const sourceOf = (settings: Settings): SourceConfig => {
   }
 }
 
-export const secretKindOf = (source: SourceConfig): SecretKind => {
-  if (source.cdr.kind !== "csv") return "db"
-  if (source.files.kind === "sftp" && !source.files.keyPath) return "sftp"
-  return null
+/** Every password the profile's source needs, in the order `session start` asks for them; a key file needs none. */
+export const secretKindsOf = (source: SourceConfig): SecretKind[] => [
+  ...(source.cdr.kind !== "csv" ? (["db"] as const) : []),
+  ...(source.tunnel && !source.tunnel.keyPath ? (["ssh"] as const) : []),
+  ...(source.files.kind === "sftp" && !source.files.keyPath ? (["sftp"] as const) : []),
+]
+
+/**
+ * Where a password is kept: the database's is the profile's token, and so is the SFTP password of a profile on
+ * Master.csv, as before a profile could keep two. Any other is a named secret in the same keyring entry.
+ */
+export const slotOf = (source: SourceConfig, kind: SecretKind): "token" | "sftp" | "ssh" => {
+  if (kind === "db" || (kind === "sftp" && source.cdr.kind === "csv")) return "token"
+  return kind
 }

@@ -5,7 +5,7 @@ import type { FileAccess } from "../files.js"
 import type { SourceConfig } from "../source.js"
 import { csvParser, csvTable } from "./csv.js"
 import { type CdrRow, cdrRow, type RawRow, timeIn } from "./record.js"
-import type { SqlCdr, SqlSource } from "./sql.js"
+import type { SqlCdr, SqlCdrOptions, SqlSource } from "./sql.js"
 
 export interface CdrReader extends CdrRows {
   close(): Promise<void>
@@ -65,12 +65,14 @@ export const cdrReader = async (
     password,
     events,
     signal,
+    socket,
     sql: open,
   }: {
     password?: string | undefined
     events?: EventSink
     signal?: AbortSignal
-    sql?: (source: SqlSource, password: string) => Promise<SqlCdr>
+    socket?: SqlCdrOptions["socket"]
+    sql?: (source: SqlSource, password: string, options: SqlCdrOptions) => Promise<SqlCdr>
   },
 ): Promise<CdrReader> => {
   const { cdr, zone } = source
@@ -98,9 +100,10 @@ export const cdrReader = async (
     throw new CliError("authentication_error", "this profile has no database password yet; run session start", {
       reason: "profile.not-signed-in",
     })
+  const options: SqlCdrOptions = { events, signal, socket }
   const sql = open
-    ? await open(cdr, password)
-    : await (await import("./sql.js")).sqlCdr(cdr, password, { events, signal })
+    ? await open(cdr, password, options)
+    : await (await import("./sql.js")).sqlCdr(cdr, password, options)
   return {
     rows: async (since) => {
       const utc = new Date(since).toISOString()

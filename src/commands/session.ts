@@ -25,22 +25,44 @@ import {
 } from "@wirecat/cli-core/cli"
 import { Command } from "commander"
 import { configuration } from "../config.js"
-import { contextOf, openSource, readyToRead, refuseOffline, refuseUnpinnedHost } from "../context.js"
+import { contextOf, openSource, type Passwords, readyToRead, refuseOffline, refuseUnpinnedHost } from "../context.js"
 import { IDENTITY } from "../identity.js"
-import { type SecretKind, secretKindOf, sourceOf } from "../source.js"
+import { type SecretKind, secretKindsOf, slotOf, sourceOf } from "../source.js"
 
 const CLI = IDENTITY.command
 
-const ASKED: Record<Exclude<SecretKind, null>, string> = {
+const ASKED: Record<SecretKind, string> = {
   db: "password of the CDR database user: ",
+  ssh: "password of the SSH user: ",
   sftp: "password of the SFTP user: ",
 }
 
-/** Reads the newest hour of call records: proof that the settings and the password reach the CDR, changing nothing. */
-const check = async (command: Command, password?: string) => {
+/**
+ * Each password the source needs: asked one by one at a terminal; from a pipe, one per line in the order they are
+ * asked, since a pipe is read once and whole.
+ */
+const askPasswords = async (command: Command, kinds: readonly SecretKind[]): Promise<Passwords> => {
+  const [first] = kinds
+  if (!first) return {}
+  const input = secretInputOf(command)
+  let answers: string[] = []
+  if ((input.input ?? process.stdin).isTTY) for (const kind of kinds) answers.push(await readSecret(ASKED[kind], input))
+  else answers = (await readSecret(ASKED[first], input)).split(/\r?\n/)
+  if (kinds.some((_, index) => !answers[index]))
+    throw new CliError(
+      "validation_error",
+      kinds.length > 1
+        ? `this profile needs ${kinds.length} passwords, one per line in this order: ${kinds.join(", ")}`
+        : "no password was given",
+    )
+  return Object.fromEntries(kinds.map((kind, index) => [kind, answers[index]]))
+}
+
+/** Reads the newest hour of call records: proof that the settings and the passwords reach the CDR, changing nothing. */
+const check = async (command: Command, passwords?: Passwords) => {
   const { run } = contextOf(command)
   return run(async () => {
-    const opened = await openSource(command, password)
+    const opened = await openSource(command, passwords)
     try {
       const { rows } = await opened.reader.rows(Date.now() - 60 * 60 * 1000)
       return { cdr: opened.source.cdr.kind, calls_last_hour: rows.length }
@@ -68,9 +90,10 @@ const startCommand = () =>
   )
     .summary("check the profile's Asterisk source and keep its password")
     .description(
-      "check that this profile reaches its call records, set with config set: a database password, or an SFTP " +
-        "password when no key file is set, is asked hidden or read from stdin, never taken as an argument, checked, " +
-        "and only then kept in the keyring, or in a private file; Master.csv on this computer needs none",
+      "check that this profile reaches its call records, set with config set: each password it needs (the " +
+        "database's, the SSH tunnel's, the SFTP server's, when no key file is set) is asked hidden, or read from " +
+        "stdin one per line, never taken as an argument, checked, and only then kept in the keyring, or in a " +
+        "private file; Master.csv on this computer needs none",
     )
     .option(
       "--credential-storage <storage>",
@@ -84,17 +107,25 @@ const startCommand = () =>
       const source = sourceOf(settings)
       if (source.files.kind === "sftp") refuseOffline(settings.offline)
       await refuseUnpinnedHost(source, contextOf(this).environment, profile)
-      const kind = secretKindOf(source)
+      const kinds = secretKindsOf(source)
       // A secret is never an argument: it would land in shell history and in the run record (WC-SECR-5).
-      const password = kind ? await readSecret(ASKED[kind], secretInputOf(this)) : undefined
-      if (kind && !password) throw new CliError("validation_error", "no password was given")
-      const checked = await check(this, password)
-      const storedIn = kind && password ? secrets.write(profile, password, args.credentialStorage) : null
+      const passwords = await askPasswords(this, kinds)
+      const checked = await check(this, passwords)
+      let storedIn: string | null = null
+      for (const kind of kinds) {
+        const slot = slotOf(source, kind)
+        const secret = passwords[kind] as string
+        storedIn =
+          slot === "token"
+            ? secrets.write(profile, secret, args.credentialStorage)
+            : secrets.writeSecret(profile, slot, secret, args.credentialStorage)
+      }
       rememberAccount(IDENTITY, profile, profile, env)
       answer(this, {
         profile,
         state: "saved",
-        password: kind ?? "none",
+        password: kinds[0] ?? "none",
+        passwords: kinds,
         stored_in: storedIn,
         verified: true,
         ...checked,
@@ -113,13 +144,15 @@ const statusCommand = () =>
     )
     .option("--check", "read the newest call records to prove the settings and the password work")
     .action(async function (this: Command, args: { check?: boolean }) {
-      const { profile, secrets, settings } = contextOf(this)
-      const kind = secretKindOf(sourceOf(settings))
-      const saved = kind ? secrets.read(profile) : undefined
+      const { env, profile, secrets, settings, environment } = contextOf(this)
+      const source = sourceOf(settings)
+      const kinds = secretKindsOf(source)
+      const saved = kinds[0] ? secrets.read(profile) : undefined
       const status = {
         profile,
-        password: kind ?? "none",
-        state: !kind || saved ? "saved" : "missing",
+        password: kinds[0] ?? "none",
+        passwords: kinds,
+        state: readyToRead(profile, env, environment.keyring) ? "saved" : "missing",
         password_from: saved?.source ?? null,
       }
       if (!args.check || status.state === "missing") return answer(this, { ...status, verified: false })

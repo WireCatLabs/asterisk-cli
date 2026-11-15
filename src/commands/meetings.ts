@@ -1,6 +1,12 @@
 import { CliError } from "@wirecat/cli-base"
 import { annotate, metaOf } from "@wirecat/cli-base/commands"
+import { linkFor } from "@wirecat/cli-core"
 import {
+  addCallStatsCommand,
+  addMeetingCombinedSearchCommand,
+  addMeetingEmbeddingCommand,
+  addMeetingTagsCommand,
+  type Body,
   baseContext,
   environmentOf,
   fetchesOnly,
@@ -27,7 +33,7 @@ import { Command } from "commander"
 import type { CallSource } from "../call-source.js"
 import type { CdrRow } from "../cdr/record.js"
 import { configuration } from "../config.js"
-import type { OpenedSource } from "../context.js"
+import type { AsteriskEnvironment, OpenedSource } from "../context.js"
 import type { FileAccess } from "../files.js"
 import { IDENTITY } from "../identity.js"
 import type { Recording } from "../recordings.js"
@@ -41,6 +47,8 @@ interface Opened {
   asterisk: () => Promise<OpenedSource>
   files: () => Promise<FileAccess>
   source: () => CallSource
+  /** The text model `meetings embed` uses without --model: the one `models set` chose, else cli-core's default. */
+  textModel: string
   close: () => Promise<void>
 }
 
@@ -111,6 +119,19 @@ const bodyOf = (command: Command, value: unknown) => {
   return itemOf(snakeKeys(value))
 }
 
+const CLI = `${IDENTITY.command} office`
+
+/** WireCat Desktop opens the call by the provider's own ids; JSON has no field for it, so only the terminal shows it. */
+const desktopLine = (body: Body, env: NodeJS.ProcessEnv): string | null => {
+  const item = (body as { item?: unknown }).item
+  if (!isRecord(item) || typeof item.provider_id !== "string" || typeof item.account !== "string") return null
+  const link = linkFor(
+    { type: "meeting", provider: "asterisk", account: item.account, meeting: item.provider_id },
+    { form: "app", env },
+  )
+  return link ? `Open in WireCat Desktop: ${link}\n` : null
+}
+
 /** The shared `meetings` commands over Asterisk's call records: one call is one meeting, for this profile only. */
 export const meetingsMount = () => {
   const commands = new Set<Command>()
@@ -140,13 +161,89 @@ export const meetingsMount = () => {
       const at = action
       if (!at) throw new CliError("configuration_error", "no command is running")
       const body = bodyOf(at, value)
-      answers.push(() => renderAnswer(at, outputFor(at), body))
+      answers.push(() => {
+        const output = outputFor(at)
+        renderAnswer(at, output, body)
+        const line =
+          pathOf(at).join(" ") === "meetings show" && output.format === "pretty" && desktopLine(body, need().env)
+        if (line) output.streams.data(line)
+      })
     },
+  }
+  // cli-core's commands below answer a finished envelope: printed as it is, after the store has closed.
+  const output = (body: Body, command: Command) => {
+    answers.push(() => renderAnswer(command, outputFor(command), body))
+  }
+  const signal = () => (action ? environmentOf(action).signal : undefined)
+  const services = () => import("@wirecat/cli-core/services")
+  // cli-core's commands below run no run of their own; each read inside one is recorded and bounded by --timeout.
+  const inRun = <T>(body: () => Promise<T>): Promise<T> => (action ? inCommandRun(action, body) : body())
+  const meaning = async () => {
+    const { store, accountId, env } = need()
+    const load = action ? environmentOf<AsteriskEnvironment>(action).meaning : undefined
+    const opened = (await services()).meetingMeaning(store, accountId, { env, ...(load ? { load } : {}) })
+    return {
+      search: (...args: Parameters<typeof opened.search>) => inRun(() => opened.search(...args)),
+      generate: (...args: Parameters<typeof opened.generate>) => inRun(() => opened.generate(...args)),
+    }
   }
   return {
     commands: (): Command[] => {
       const holder = new Command(IDENTITY.command)
       addMeetingCommands(holder, deps)
+      addCallStatsCommand(holder, {
+        read: async () => {
+          const { readCallStats } = await services()
+          const { store, accountId } = need()
+          return (request) => inRun(() => readCallStats(store, { ...request, accountId }))
+        },
+        signal,
+        output,
+        examples: [`${CLI} stats calls show --since-time 7d --json`],
+      })
+      addMeetingCombinedSearchCommand(holder, {
+        words: async () => {
+          const { searchMeetingHits } = await services()
+          const { store, accountId } = need()
+          return (query, request) => inRun(() => searchMeetingHits(store, query, { ...request, accountId }))
+        },
+        meaning,
+        signal,
+        pagingOf,
+        output,
+        examples: [
+          `${CLI} search meetings refund --json`,
+          `${CLI} search meetings "a client unhappy with the delivery" --model embeddinggemma --json`,
+        ],
+      })
+      addMeetingEmbeddingCommand(holder, {
+        meaning,
+        defaultModel: () => need().textModel,
+        signal,
+        output,
+        examples: [`${CLI} meetings embed --json`, `${CLI} meetings embed --yes --json`],
+      })
+      addMeetingTagsCommand(holder, {
+        read: async () => {
+          const { meetingTags } = await services()
+          const tags = meetingTags(need().store, need().accountId)
+          return {
+            add: (...args: Parameters<typeof tags.add>) => inRun(() => tags.add(...args)),
+            remove: (...args: Parameters<typeof tags.remove>) => inRun(() => tags.remove(...args)),
+            list: (...args: Parameters<typeof tags.list>) => inRun(() => tags.list(...args)),
+          }
+        },
+        signal,
+        output,
+        examples: {
+          add: [
+            `${CLI} tags add complaint --matching "refund OR complaint" --json`,
+            `${CLI} tags add vip --meeting 12 --json`,
+          ],
+          remove: [`${CLI} tags remove complaint --meeting 12 --json`],
+          list: [`${CLI} tags list tag:complaint --json`],
+        },
+      })
       holder.commands
         .find((group) => group.name() === "meetings")
         ?.addCommand(
@@ -171,7 +268,7 @@ export const meetingsMount = () => {
           }),
         )
       for (const group of holder.commands) {
-        if (group.commands.length) annotate(group, { effects: NO_EFFECTS })
+        if (group.commands.length && !hasSharedContract(group)) annotate(group, { effects: NO_EFFECTS })
         for (const leaf of leaves(group)) {
           withExample(leaf)
           commands.add(leaf)
@@ -236,10 +333,15 @@ export const meetingsMount = () => {
       const opening = () => (asterisk ??= openSource(at))
       let source: CallSource | undefined
       let finder: ((row: CdrRow) => Promise<Recording | null>) | undefined
+      const textModel =
+        pathOf(at).join(" ") === "meetings embed"
+          ? (await import("@wirecat/cli-core/services")).chosenTextModel(env).id
+          : ""
       opened = {
         store,
         accountId,
         env,
+        textModel,
         close,
         asterisk: opening,
         files: () => (files ??= openFiles(at)),

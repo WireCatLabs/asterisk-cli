@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { PassThrough } from "node:stream"
 import { CliError, memoryKeyring } from "@wirecat/cli-base"
+import type { SshTunnel, SshTunnelOptions } from "@wirecat/cli-core/sftp"
 import { beforeEach, expect, it } from "vitest"
 import type { RawRow } from "./cdr/record.js"
-import type { SqlCdr, SqlSource } from "./cdr/sql.js"
-import type { Speech } from "./commands/transcribe.js"
-import { asteriskFolder, configure, freshFolders, runCli } from "./testing/harness.js"
+import type { SqlCdr, SqlCdrOptions, SqlSource } from "./cdr/sql.js"
+import { asteriskFolder, configure, fakeSpeech, freshFolders, runCli } from "./testing/harness.js"
 
 const PASSWORD = "test-db-password-7f3a"
 
@@ -47,7 +48,10 @@ const ROWS: RawRow[] = [
 /** A CDR table that refuses any password but the test's, as the server does, and records the bounds it was asked. */
 const fakeTable = () => {
   const asked: string[] = []
-  const open = async (source: SqlSource, password: string): Promise<SqlCdr> => {
+  const options: SqlCdrOptions[] = []
+  const open = async (source: SqlSource, password: string, given: SqlCdrOptions): Promise<SqlCdr> => {
+    options.push(given)
+    await given.socket?.()
     if (password !== PASSWORD)
       throw new CliError("authentication_error", `the ${source.kind} server refused the user or password`, {
         reason: "db.refused",
@@ -60,7 +64,7 @@ const fakeTable = () => {
       close: async () => {},
     }
   }
-  return { open, asked }
+  return { open, asked, options }
 }
 
 beforeEach(async () => {
@@ -148,16 +152,101 @@ it("meetings transcribe reads only the recordings: no password and no database, 
   expect(synced.code, synced.err).toBe(0)
   expect((await runCli(["office", "session", "end", "--json"], { keyring })).code).toBe(0)
   const asked = table.asked.length
-  const speech: Speech = {
-    findModel: ((id: string) => ({ id })) as Speech["findModel"],
-    isInstalled: () => true,
-    modelsDirectory: () => "/models",
-    localSpeechRecognitionModel: ((model: string) => ({ engine: "sherpa-onnx", model, version: "1" })) as never,
-    decodeChannels: async () => ({ channels: [{ samples: new Float32Array(80_000), rate: 8000 }], mixed: true }),
-    recognizeLocalPieces: async () => [{ start: 0, end: 3, text: "оплатим в пятницу" }],
-  }
+  const speech = fakeSpeech()
   const done = await runCli(["office", "meetings", "transcribe", "--offline", "--json"], { keyring, speech })
   expect(done.code, done.err).toBe(0)
   expect(done.json().item).toMatchObject({ transcribed: 1 })
   expect(table.asked).toHaveLength(asked)
+})
+
+const SSH_PASSWORD = "test-ssh-password-4e1b"
+const SSH_KEY = "SHA256:c3NoLWhvc3Qta2V5LWZpbmdlcnByaW50LTAwMDAwMDAw"
+
+/** An SSH server that forwards only to the database on its own loopback, for the test's password and key. */
+const fakeTunnel = () => {
+  const opened: SshTunnelOptions[] = []
+  const forwarded: string[] = []
+  let closed = 0
+  const open = async (options: SshTunnelOptions): Promise<SshTunnel> => {
+    opened.push(options)
+    if (options.hostKey !== SSH_KEY) throw new CliError("authentication_error", "host key", { reason: "ssh.host-key" })
+    if (!("password" in options.auth) || options.auth.password !== SSH_PASSWORD)
+      throw new CliError("authentication_error", "refused", { reason: "auth.failed" })
+    return {
+      connect: async (host, port) => {
+        forwarded.push(`${host}:${port}`)
+        return new PassThrough()
+      },
+      close: async () => {
+        closed++
+      },
+    }
+  }
+  return { open, opened, forwarded, closed: () => closed }
+}
+
+it("a database behind the PBX's SSH: the key is pinned first, then both passwords are asked, kept in one entry", async () => {
+  await configure({ db_host: "127.0.0.1", db_ssh_host: "pbx.example.test", db_ssh_user: "wirecat" })
+  const table = fakeTable()
+  const tunnel = fakeTunnel()
+  const keyring = memoryKeyring()
+  const environment = {
+    keyring,
+    sql: table.open,
+    sshTunnel: tunnel.open,
+    sftpHostKey: async () => ({ algorithm: "ssh-ed25519", fingerprint: SSH_KEY }),
+  }
+  const unpinned = await runCli(["office", "session", "start", "--json"], {
+    ...environment,
+    stdin: `${PASSWORD}\n${SSH_PASSWORD}\n`,
+  })
+  expect(unpinned.json()).toMatchObject({ error: { reason: "sftp.host-key-missing" } })
+  expect(unpinned.err).toContain(`pbx office config set db_ssh_host_key ${SSH_KEY}`)
+  expect(tunnel.opened).toEqual([])
+
+  await configure({ db_ssh_host_key: SSH_KEY })
+  const one = await runCli(["office", "session", "start", "--json"], { ...environment, stdin: `${PASSWORD}\n` })
+  expect(one.json()).toMatchObject({ error: { code: "validation_error" } })
+  expect(one.err).toContain("2 passwords, one per line in this order: db, ssh")
+
+  const started = await runCli(["office", "session", "start", "--json"], {
+    ...environment,
+    stdin: `${PASSWORD}\n${SSH_PASSWORD}\n`,
+  })
+  expect(started.code, started.err).toBe(0)
+  expect(started.json().item).toMatchObject({ password: "db", passwords: ["db", "ssh"], verified: true })
+  expect(tunnel.forwarded).toEqual(["127.0.0.1:3306"])
+  expect(tunnel.closed()).toBe(1)
+  expect([...keyring.entries.keys()]).toEqual(["asterisk-cli:token:office"])
+  expect(keyring.entries.get("asterisk-cli:token:office")).not.toBe(PASSWORD)
+
+  const synced = await runCli(["office", "meetings", "sync", "--since-time", "2026-10-31T00:00:00Z", "--json"], {
+    ...environment,
+  })
+  expect(synced.code, synced.err).toBe(0)
+  expect(tunnel.opened.at(-1)).toMatchObject({ host: "pbx.example.test", username: "wirecat", hostKey: SSH_KEY })
+  expect(tunnel.closed()).toBe(2)
+  const status = await runCli(["office", "session", "status", "--json"], environment)
+  expect(status.json().item).toMatchObject({ state: "saved", passwords: ["db", "ssh"] })
+})
+
+it("a tunnel that signs in with a key file asks only the database password, and a missing SSH password says so", async () => {
+  await configure({
+    db_host: "127.0.0.1",
+    db_ssh_host: "pbx.example.test",
+    db_ssh_user: "wirecat",
+    db_ssh_host_key: SSH_KEY,
+  })
+  const keyring = memoryKeyring({ "asterisk-cli:token:office": PASSWORD })
+  const missing = await runCli(["office", "meetings", "sync", "--json"], {
+    keyring,
+    sql: fakeTable().open,
+    sshTunnel: fakeTunnel().open,
+  })
+  expect(missing.json()).toMatchObject({ error: { reason: "profile.not-signed-in" } })
+  expect(missing.err).toContain("no SSH password yet")
+  const keyPath = join(asteriskFolder({ id: "-----BEGIN OPENSSH PRIVATE KEY-----\n" }), "id")
+  await configure({ db_ssh_key_path: keyPath })
+  const status = await runCli(["office", "session", "status", "--json"], { keyring })
+  expect(status.json().item).toMatchObject({ state: "saved", passwords: ["db"] })
 })

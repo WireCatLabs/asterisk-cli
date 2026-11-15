@@ -15,6 +15,8 @@ delete process.env.PBX_PROFILE
 delete process.env.PBX_READ_ONLY
 delete process.env.AI_AGENT
 delete process.env.CLAUDECODE
+// A key on the developer's machine would let cloud speech run in a test.
+delete process.env.OPENAI_API_KEY
 
 afterAll(() => {
   for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key]

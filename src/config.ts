@@ -19,6 +19,11 @@ const SOURCE_ENTRIES = {
   db_user: v.optional(text("the database user")),
   db_table: v.optional(v.pipe(text("the table name"), v.regex(/^[A-Za-z_][\w.]{0,127}$/, "has to be a table name"))),
   db_tls: v.optional(v.boolean(plain("has to be true or false"))),
+  db_ssh_host: v.optional(text("the SSH server's host name, the PBX itself for a FreePBX database")),
+  db_ssh_port: v.optional(port),
+  db_ssh_user: v.optional(text("the SSH user")),
+  db_ssh_key_path: v.optional(text("the path of a private key")),
+  db_ssh_host_key: v.optional(text("the SSH server's SHA256 host key fingerprint")),
   recordings_path: v.optional(text("the folder of the call recordings")),
   recordings_pattern: v.optional(text("a file pattern with {uniqueid}, {linkedid} or {yyyy}/{mm}/{dd}")),
   recordings_channels: v.optional(
@@ -38,6 +43,10 @@ const SOURCE_ENTRIES = {
     ),
   ),
   extension_pattern: v.optional(text("a regular expression for internal extensions")),
+  // Read from the profile's own section only, so it has no shared default: sending a business's calls away is
+  // decided for one profile at a time. `transcribe_with` is cli-core's messenger setting, which pbx cannot set.
+  transcribe_engine: v.optional(v.picklist(["local", "openai"], plain("has to be local or openai"))),
+  transcribe_model: v.optional(text("the speech model of the service, such as gpt-transcribe")),
 }
 
 export type SourceSetting = keyof typeof SOURCE_ENTRIES
@@ -51,6 +60,7 @@ export const configuration: Configuration = settingsFor(IDENTITY, {
     { key: "cdr_source", default: "csv", description: "where call records come from: csv, mysql or postgres" },
     { key: "files_from", default: "local", description: "where Master.csv and the recordings are: local or sftp" },
     { key: "db_table", default: "cdr", description: "the CDR table of a mysql or postgres source" },
+
     {
       key: "extension_pattern",
       default: "^\\d{2,5}$",
