@@ -8,9 +8,15 @@ and never writes to it: Master.csv and the recordings are opened for reading onl
 read-only and sends a `SELECT` of the CDR table, with values as parameters. Give it a user that may do no more, as
 [connect your Asterisk](installation.md#a-cdr-database) shows, and keep the database and AMI off the internet.
 
-`session start` keeps a database password in the OS keyring, or in a private file where no keyring works. The password
-is read hidden or from stdin, never from the command line, and is checked before it is kept. It goes only to the
-database driver, never into an answer, an error, a run record or a log. A profile on a local Master.csv keeps none.
+`session start` keeps the passwords a profile needs in the OS keyring, or in a private file where no keyring works:
+the database user's, and the SSH or SFTP user's when no key file is set. They are kept together in one keyring entry
+of the profile. Each is read hidden or from stdin, never from the command line, and is checked before it is kept. It
+goes only to the database driver or the SSH connection, never into an answer, an error, a run record or a log. A
+profile on a local Master.csv keeps none.
+
+An SFTP or SSH server is used only once you pinned its key: no password or key file is sent to a server whose key
+does not match. The SSH tunnel to a database only forwards to it: it runs no command on the phone system and opens
+no port on your computer.
 
 ## What the store holds
 
@@ -19,7 +25,12 @@ recordings and, once transcribed, what was said. It does not keep a copy of a re
 calls themselves: it is on this computer, readable by your user only. Transcripts, names and numbers reach an agent
 marked as untrusted data, never as instructions.
 
-Speech is recognized on this computer. No recording or transcript goes to an outside service.
+Speech is recognized on this computer. No recording or transcript goes to an outside service, unless you set
+`transcribe_engine openai` for one profile. Then the speech of each recording goes to OpenAI, or to the
+OpenAI-compatible address of WireCat's shared AI model, and the run says where before the first piece leaves. The
+call's number, names and times are not sent; see [cloud transcription](installation.md#cloud-transcription). A
+recording read over SFTP is copied into a private temporary file (`0600`) for the time it is read, and deleted
+after.
 
 ## Recordings and consent
 

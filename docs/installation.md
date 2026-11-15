@@ -3,7 +3,8 @@
 Asterisk writes a line about every call to its call log and keeps each recording as a sound file, but it gives your AI
 agent no way to read them. Services that turn recordings into text usually send them to the cloud. `pbx`, a WireCat
 command-line tool, reads the call log and the recordings where Asterisk keeps them, changes nothing on the phone
-system, and turns the recordings into text on your computer.
+system, and turns the recordings into text on your computer. Cloud transcription is an option you turn on for one
+profile.
 
 Once it is connected, you can ask your agent who called about an order last week and what was agreed, find every
 call from one number, or see a caller's calls next to their chats, mail and CRM card. `pbx` keeps each call in the
@@ -166,13 +167,46 @@ the table (`cdr`), and `db_tls true` asks for an encrypted connection with a che
 opened read-only, and the only statement sent is a `SELECT` of the records that started after the last sync, in pages
 of 5,000.
 
-FreePBX's database listens on the phone system itself only. Do not open it to the network: reach it through SSH, and
-point `db_host` at the tunnel:
+### A database behind the phone system's SSH
+
+FreePBX's database listens on the phone system itself only. Do not open it to the network. `pbx` reaches it through
+an SSH tunnel (a secure connection through the phone system's remote login service) that it opens for each command
+and closes at the end. The tunnel only forwards to the database: it runs no command on the phone system and opens no
+port on your computer.
+
+On FreePBX, make the database user on the phone system, as above, but for `localhost`:
+
+```sql
+CREATE USER 'wirecat_reader'@'localhost' IDENTIFIED BY 'a long random password';
+GRANT SELECT ON asteriskcdrdb.cdr TO 'wirecat_reader'@'localhost';
+```
+
+Then point `db_host` at the database as the phone system sees it, and set the SSH server:
 
 ```sh
-ssh -N -L 3306:127.0.0.1:3306 admin@pbx.example.lan &
+pbx office config set cdr_source mysql
 pbx office config set db_host 127.0.0.1
+pbx office config set db_name asteriskcdrdb
+pbx office config set db_user wirecat_reader
+pbx office config set db_ssh_host pbx.example.lan
+pbx office config set db_ssh_user wirecat
+pbx office config set db_ssh_key_path ~/.ssh/wirecat_pbx     # or leave it out to sign in with a password
+pbx office session start
 ```
+
+`db_ssh_port` changes the SSH port (22). The SSH user needs no shell: an account that may only forward a port is
+enough. The first `session start` connects only far enough to see the SSH server's key, and stops. It prints the
+key's fingerprint and the command that pins it (`config set db_ssh_host_key SHA256:…`). Compare it with the phone
+system's own, from `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` there, before you run that command.
+
+Without a key file, `session start` asks two passwords: the database user's, then the SSH user's. Piped in, they go
+one per line in that order:
+
+```sh
+printf '%s\n%s\n' "$DB_PASSWORD" "$SSH_PASSWORD" | pbx office session start
+```
+
+Both are checked by reading the newest call records, then kept in one keyring entry of the profile.
 
 ### Recordings
 
@@ -220,9 +254,10 @@ whose key changes is refused. Then `session start` asks the SFTP password, if th
 reading the newest call records, and keeps it in the keyring.
 
 Paths are the phone system's: `cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv`, `recordings_path
-/var/spool/asterisk/monitor`. A profile keeps one saved password. A profile that reads its records from a database
-keeps the database password, so it connects to SFTP with a key file. A dropped connection or a timeout is tried
-again; a wrong password, a changed key or a missing file is not.
+/var/spool/asterisk/monitor`. A profile that reads its records from a database and its recordings over SFTP with a
+password asks both passwords, the database's first; with an SSH tunnel too, the order is the database's, the SSH
+user's, then the SFTP user's. A dropped connection is opened again and the file is read on from where it stopped; a
+wrong password, a changed key or a missing file is not tried again.
 
 ## Numbers, directions and people
 
@@ -263,15 +298,16 @@ pbx office meetings transcribe --max-meetings 50
 ```
 
 Recognition runs on this computer, and the recordings are not sent anywhere. A recording already transcribed is not
-read again unless the file changed; `--replace` transcribes again.
+read again unless the file changed; `--replace` transcribes again. A recording on the phone system is copied over
+SFTP into a private temporary file for the time it is read, and deleted after.
 
-A recording can be up to one hour long. A WAV, GSM or M4A file can be up to 2 GB, and an MP3, Ogg or FLAC file up
-to 256 MB. `Master.csv` on this computer or in a mounted folder can be of any size. Read over SFTP (the secure file
-access of the phone system), it can be up to 512 MB, because it is read into memory whole.
+A recording can be up to one hour long. A WAV, GSM or M4A file can be of any size; an MP3, Ogg or FLAC file can be up
+to 64 MB, which is more than an hour at usual phone quality. A call that is not transcribed is listed with the
+reason, and the rest go on. WAV, GSM and M4A need `ffmpeg`.
 
 Each line of a transcript can name who said it. Your dialplan records the two sides of a call either as one mixed
-track (mono) or on two channels (stereo). A stereo recording in MP3, Ogg or FLAC keeps the channels apart. Tell
-`pbx` which side is on the first channel:
+track (mono) or on two channels (stereo). A stereo recording keeps the channels apart, in every format. Tell `pbx`
+which side is on the first channel:
 
 ```sh
 pbx office config set recordings_channels employee,caller    # or caller,employee
@@ -280,9 +316,32 @@ pbx office meetings transcribe --replace
 
 Each line then names the caller by name and number, such as `Ivan Testov +79000000001`, or the employee by
 extension and name, such as `101 Oleg Operatorov`. Without the setting, the lines say `Channel 1` and `Channel 2`.
-To find out which side is on which channel, transcribe one call and read it. A mono recording, and a WAV, GSM or
-M4A recording, gives the text without names, because ffmpeg mixes the channels into one. A call between two
-extensions keeps `Channel 1` and `Channel 2`, since it has no caller from outside.
+To find out which side is on which channel, transcribe one call and read it. A mono recording gives the text without
+names. A call between two extensions keeps `Channel 1` and `Channel 2`, since it has no caller from outside.
+
+### Cloud transcription
+
+A profile can send its recordings to OpenAI's speech-to-text service in place of the local model. It is off unless
+you turn it on for that profile; a setting in the shared `defaults` does not turn it on.
+
+```sh
+pbx office config set transcribe_engine openai
+pbx office config set transcribe_model gpt-transcribe        # optional; gpt-transcribe when not set
+export OPENAI_API_KEY=…                                       # the service's key, for the run
+pbx office meetings transcribe
+```
+
+What leaves your computer: the speech of each recording, in pieces of at most ten minutes, sent to
+`api.openai.com`, or to the OpenAI-compatible address of WireCat's shared AI model when another WireCat tool set one.
+The call's number, names, times and the file name are not sent. Before the first piece goes, the
+run says on stderr where the audio goes. The text comes back and is kept in the local store, as a local transcript
+is.
+
+The run still needs one local speech model downloaded (`pbx models download gigaam-v3`): the voice detector that
+cuts the speech into pieces comes with it. Without the key, the run stops before it reads a recording.
+`PBX_READ_ONLY=1` refuses cloud transcription, and so does WireCat's shared local-only switch when it is on. Recording a call and sending it to
+a service may need the consent of the people on it; see [security](security.md#recordings-and-consent).
+`config set transcribe_engine local` turns it off again.
 
 ## Search the calls with everything else
 

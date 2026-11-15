@@ -2,17 +2,21 @@
 
 You have [connected your Asterisk](installation.md), and the calls are in the WireCat store. Here you will find the
 everyday work a team can hand to an AI agent with them: getting ready for a callback, catching the calls nobody
-answered, reviewing a day of calls by employee, and passing the calls to another system. Each task has a request you
-can copy, and [Run it on a schedule](#run-it-on-a-schedule) shows how to make it happen every day without you.
+answered, a report of the week, finding the calls where a client was unhappy, marking the calls about refunds, and
+passing the calls to another system. Each task has a request you can copy, and
+[Run it on a schedule](#run-it-on-a-schedule) shows how to make it happen every day without you.
 
 **On this page:**
 
 1. [What you get from each call](#what-you-get-from-each-call)
 2. [Ask your agent](#ask-your-agent)
-3. [Run it on a schedule](#run-it-on-a-schedule)
-4. [Find and read calls yourself](#find-and-read-calls-yourself)
-5. [Output for scripts](#output-for-scripts)
-6. [Agents](#agents)
+3. [A report of the week](#a-report-of-the-week)
+4. [Find calls by what was meant](#find-calls-by-what-was-meant)
+5. [Mark every call about refunds](#mark-every-call-about-refunds)
+6. [Run it on a schedule](#run-it-on-a-schedule)
+7. [Find and read calls yourself](#find-and-read-calls-yourself)
+8. [Output for scripts](#output-for-scripts)
+9. [Agents](#agents)
 
 ## What you get from each call
 
@@ -30,7 +34,8 @@ A ring group, a queue or a transfer writes several records for one call. You see
 - **The same person everywhere:** a caller whose mobile number is in your CRM or your chats is the same person
   there, so their calls sit next to their deals, messages and mail. A landline is only proposed as a match, since
   many people share one office number.
-- **What was said:** the recording, turned into text on your computer, with no recording sent to any service.
+- **What was said:** the recording, turned into text on your computer. No recording goes to a service unless you
+  turn on [cloud transcription](installation.md#cloud-transcription) for the profile.
 
 ## Ask your agent
 
@@ -70,14 +75,82 @@ what was agreed and what we still owe her.
 Each answer comes from the local store, and the agent can show the call behind every line. When a call has no
 transcript yet, the agent says so and can [transcribe](installation.md#transcribe) it.
 
-## Run it on a schedule
+## A report of the week
 
-The calls stay current when the sync and the transcription run on their own, for example every fifteen minutes from
-cron:
+`stats calls show` counts the stored calls: by direction and outcome, per employee, by hour and by day. It also
+lists the missed incoming calls and says whether someone called the client back within a day. It reads only the
+local store, so it is fast and needs no connection to the phone system.
 
 ```sh
-*/15 * * * * pbx office meetings sync && pbx office meetings transcribe --max-meetings 20
+pbx office stats calls show --since-time 7d --timezone Europe/Moscow
 ```
+
+`--timezone` is the zone that hours and days are counted in; without it, this computer's zone. `--within 2h` changes
+how soon a callback must come to count.
+
+```text prompt
+Use pbx CLI. Make a report of last week's calls from pbx office stats calls show: the calls per day, the share
+answered, each employee's answered calls and talk time, the busiest hours, and the missed calls nobody returned,
+with the number and the time. Show it as tables, then list the three things to fix first.
+```
+
+## Find calls by what was meant
+
+`search meetings` finds a call by the words said in it. With `--model`, it also finds a call by its meaning: a
+request for "a client unhappy with the delivery" can find a call where the client said "the courier came three days
+late", with no word in common. The text model runs on this computer, so no transcript leaves it.
+
+Download the text model once, and build the search data for the calls you have:
+
+```sh
+pbx models download embeddinggemma
+pbx office meetings embed            # shows what it would do, and changes nothing
+pbx office meetings embed --yes      # builds one batch; run it again until nothing is left
+pbx office search meetings "a client unhappy with the delivery" --model embeddinggemma
+```
+
+A hit says how it was found, by words or by meaning, and quotes the passage of the transcript. A search with
+`--model` also builds the data for the calls transcribed since the last `meetings embed`, so it never misses a new
+call, but it is faster when [the schedule](#run-it-on-a-schedule) runs `meetings embed --yes`.
+
+```text prompt
+Use pbx CLI. Find this month's calls where a client was unhappy with the delivery, search by meaning with
+--model embeddinggemma. For each call give the date, the client's number, what went wrong in their words, and
+whether we promised anything. Quote the passage behind each line.
+```
+
+## Mark every call about refunds
+
+`tags add` puts a mark on calls: on every call a search finds with `--matching`, or on the calls you name with
+`--meeting`. `--matching` takes the same words as `search meetings`, with `OR` between alternatives.
+
+```sh
+pbx office tags add refund --matching "refund OR возврат"
+pbx office tags add vip --meeting 42
+pbx office tags list tag:refund
+pbx office search meetings "delivery" --tag refund
+```
+
+A second run marks only the calls that are new since the first, and the answer lists what changed. A mark stays when
+a call is transcribed again. Memo and the other WireCat tools see the same marks. `tags remove refund --meeting 42`
+takes a mark off.
+
+```text prompt
+Use pbx CLI. Mark every call about a refund with the tag refund, using tags add --matching. Then list the marked
+calls of this week with the client, the amount if they said one, and whether the refund was agreed.
+```
+
+## Run it on a schedule
+
+The calls stay current when the sync, the transcription and the marks run on their own, for example every fifteen
+minutes from cron:
+
+```sh
+*/15 * * * * pbx office meetings sync && pbx office meetings transcribe --max-meetings 20 && pbx office tags add refund --matching "refund OR возврат" && pbx office meetings embed --yes
+```
+
+Each step works on what is new since the last run: new calls, new recordings, new transcripts. `meetings embed --yes`
+keeps the search by meaning fast; leave it out if you search only by words.
 
 A request like the ones in [Ask your agent](#ask-your-agent) can run on a schedule too, in an agent that runs tasks
 on a timer: every evening the list of calls still not returned, or every Monday the week by employee. WireCat Desktop

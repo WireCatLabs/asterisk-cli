@@ -137,3 +137,48 @@ it("meetings show draws the call's WireCat Desktop link for a person, and leaves
   const off = await runCli(["office", "meetings", "show", id], { tty: true, env: { WIRECAT_LINKS: "off" } })
   expect(off.out).not.toContain("wirecat://")
 })
+
+it("stats calls show reads a window, a callback time and a short list of missed calls", async () => {
+  const stats = body(
+    await pbx(
+      "stats",
+      "calls",
+      "show",
+      "--since-time",
+      "2026-10-31",
+      "--until-time",
+      "2026-10-31",
+      "--within",
+      "2h",
+      "--limit",
+      "1",
+      "--timezone",
+      "Europe/Moscow",
+    ),
+  )
+  expect(stats.item).toMatchObject({ calls: 5, callback_within_ms: 7_200_000, missed: { calls: 1 } })
+  const none = body(await pbx("stats", "calls", "show", "--since-time", "2026-11-01", "--until-time", "2026-11-02"))
+  expect(none.item).toMatchObject({ calls: 0 })
+})
+
+it("search meetings pages its hits and keeps to a window", async () => {
+  const first = body(await pbx("search", "meetings", "refund OR courier", "--limit", "1"))
+  expect(first.items).toHaveLength(1)
+  const cursor = (first.page as { next_cursor?: string }).next_cursor ?? ""
+  const second = body(await pbx("search", "meetings", "refund OR courier", "--limit", "1", "--cursor", cursor))
+  expect(titles(second)).not.toEqual(titles(first))
+  const outside = body(
+    await pbx("search", "meetings", "refund", "--since-time", "2026-11-01", "--until-time", "2026-11-30"),
+  )
+  expect(outside.items).toEqual([])
+})
+
+it("tags remove takes a mark off by id or by search, and tags list pages", async () => {
+  body(await pbx("tags", "add", "complaint", "--matching", "refund OR courier"))
+  const page = body(await pbx("tags", "list", "tag:complaint", "--limit", "1", "--page", "2"))
+  expect(page.items).toHaveLength(1)
+  body(await pbx("tags", "remove", "complaint", "--meeting", ids["+79000000001 → 101"] ?? ""))
+  expect(body(await pbx("tags", "list", "tag:complaint")).items).toHaveLength(1)
+  body(await pbx("tags", "remove", "complaint", "--matching", "courier"))
+  expect(body(await pbx("tags", "list", "tag:complaint")).items).toEqual([])
+})

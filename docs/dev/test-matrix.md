@@ -7,7 +7,7 @@ ran it · ⛔ not tested offline, with the reason and where it is checked instea
 Measured from the test run (`coverage/argv.jsonl`), not searched for — see
 [TESTING.md](TESTING.md) for how, and for the states and failures that cut across commands.
 
-**95 ✅ · 25 ⛔ · 0 ❌** — 43 commands, 77 options.
+**120 ✅ · 48 ⛔ · 0 ❌** — 51 commands, 117 options.
 
 | Command | Option | | Note |
 |---|---|---|---|
@@ -44,15 +44,63 @@ Measured from the test run (`coverage/argv.jsonl`), not searched for — see
 | `meetings import` |  | ✅ |  |
 | `meetings repair` |  | ✅ |  |
 | `meetings repair` | `--yes` | ✅ |  |
+| `meetings embed` |  | ✅ |  |
+| `meetings embed` | `--model` | ✅ |  |
+| `meetings embed` | `--base-url` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives meetings embed --yes with a model of its own |
+| `meetings embed` | `--dims` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives meetings embed --yes with a model of its own |
+| `meetings embed` | `--limit` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives meetings embed --yes with a model of its own |
+| `meetings embed` | `--max-rows` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives meetings embed --yes with a model of its own |
+| `meetings embed` | `--max-text-bytes` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives meetings embed --yes with a model of its own |
+| `meetings embed` | `--yes` | ✅ |  |
 | `meetings transcribe` |  | ✅ |  |
 | `meetings transcribe` | `--replace` | ✅ |  |
 | `meetings transcribe` | `--max-meetings` | ✅ |  |
 | `meetings transcribe` | `--model` | ✅ |  |
 | `events list` |  | ✅ |  |
+| `stats calls show` |  | ✅ |  |
+| `stats calls show` | `--since-time` | ✅ |  |
+| `stats calls show` | `--until-time` | ✅ |  |
+| `stats calls show` | `--timezone` | ✅ |  |
+| `stats calls show` | `--person-id` | ⛔ | cli-core's readCallStats filters by a stored person; its call-stats tests drive it, and src/calls-analytics.test.ts the window, --within and --limit |
+| `stats calls show` | `--within` | ✅ |  |
+| `stats calls show` | `--limit` | ✅ |  |
+| `search meetings` |  | ✅ |  |
+| `search meetings` | `--meeting-id` | ⛔ | cli-core's searchMeetingHits filters by this option; its meeting-hit-search tests drive it; src/calls-analytics.test.ts drives the search over the calls with --tag, a window and paging |
+| `search meetings` | `--identity-id` | ⛔ | cli-core's searchMeetingHits filters by this option; its meeting-hit-search tests drive it; src/calls-analytics.test.ts drives the search over the calls with --tag, a window and paging |
+| `search meetings` | `--person-id` | ⛔ | cli-core's searchMeetingHits filters by this option; its meeting-hit-search tests drive it; src/calls-analytics.test.ts drives the search over the calls with --tag, a window and paging |
+| `search meetings` | `--event-id` | ⛔ | cli-core's searchMeetingHits filters by this option; its meeting-hit-search tests drive it; src/calls-analytics.test.ts drives the search over the calls with --tag, a window and paging |
+| `search meetings` | `--series-id` | ⛔ | cli-core's searchMeetingHits filters by this option; its meeting-hit-search tests drive it; src/calls-analytics.test.ts drives the search over the calls with --tag, a window and paging |
+| `search meetings` | `--project` | ⛔ | cli-core's searchMeetingHits filters by this option; its meeting-hit-search tests drive it; src/calls-analytics.test.ts drives the search over the calls with --tag, a window and paging |
+| `search meetings` | `--tag` | ✅ |  |
+| `search meetings` | `--topic-name` | ⛔ | cli-core's searchMeetingHits filters by this option; its meeting-hit-search tests drive it; src/calls-analytics.test.ts drives the search over the calls with --tag, a window and paging |
+| `search meetings` | `--since-time` | ✅ |  |
+| `search meetings` | `--until-time` | ✅ |  |
+| `search meetings` | `--limit` | ✅ |  |
+| `search meetings` | `--cursor` | ✅ |  |
+| `search meetings` | `--max-read-bytes` | ⛔ | cli-core's searchMeetingHits filters by this option; its meeting-hit-search tests drive it; src/calls-analytics.test.ts drives the search over the calls with --tag, a window and paging |
+| `search meetings` | `--model` | ✅ |  |
+| `search meetings` | `--base-url` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives the search by meaning with a model of its own |
+| `search meetings` | `--dims` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives the search by meaning with a model of its own |
+| `search meetings` | `--max-chunks` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives the search by meaning with a model of its own |
+| `search meetings` | `--max-rows` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives the search by meaning with a model of its own |
+| `search meetings` | `--max-text-bytes` | ⛔ | cli-core's addMeetingCombinedSearchCommand and addMeetingEmbeddingCommand pass this option to meetingMeaning, which its meeting-meaning-command tests drive; src/calls-analytics.test.ts drives the search by meaning with a model of its own |
+| `tags add` |  | ✅ |  |
+| `tags add` | `--meeting` | ✅ |  |
+| `tags add` | `--matching` | ✅ |  |
+| `tags remove` |  | ✅ |  |
+| `tags remove` | `--meeting` | ✅ |  |
+| `tags remove` | `--matching` | ✅ |  |
+| `tags list` |  | ✅ |  |
+| `tags list` | `--limit` | ✅ |  |
+| `tags list` | `--page` | ✅ |  |
 | `models list` |  | ✅ |  |
 | `models download` |  | ⛔ | cli-core's shared model catalogue downloads hundreds of MB from the model's pinned address; cli-core tests it |
 | `models download` | `--offline` | ⛔ | cli-core's shared model catalogue downloads hundreds of MB from the model's pinned address; cli-core tests it |
 | `models download` | `--accept-terms` | ⛔ | cli-core's shared model catalogue downloads hundreds of MB from the model's pinned address; cli-core tests it |
+| `models set` |  | ⛔ | cli-core's shared model catalogue writes the text model every WireCat CLI uses; cli-core tests it |
+| `models add` |  | ⛔ | cli-core's shared model catalogue pins and downloads a Hugging Face model; cli-core tests it |
+| `models add` | `--payload` | ⛔ | cli-core's shared model catalogue pins and downloads a Hugging Face model; cli-core tests it |
+| `models add` | `--offline` | ⛔ | cli-core's shared model catalogue pins and downloads a Hugging Face model; cli-core tests it |
 | `doctor` |  | ✅ |  |
 | `doctor` | `--online` | ✅ |  |
 | `doctor reports show` |  | ✅ |  |

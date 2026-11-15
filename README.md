@@ -8,7 +8,8 @@
 promised, and which calls nobody answered, from Claude Code, Codex or any MCP client.
 
 Your company's phone calls from an Asterisk PBX (FreePBX, Issabel, VitalPBX or plain Asterisk), with their recordings
-transcribed on your computer, searchable offline, and ready for any agent, within limits you set.
+transcribed on your computer, counted, searchable by words and by meaning, and ready for any agent, within limits you
+set.
 
 [Documentation](docs/index.md) · [Install and connect](docs/installation.md) · [Commands](docs/commands.md) ·
 [WireCat](https://wirecat.dev)
@@ -21,12 +22,12 @@ transcribed on your computer, searchable offline, and ready for any agent, withi
 <!-- Demo slot: a 30–45 s recording of the exchange below goes here, as an absolute
      raw.githubusercontent.com URL so it also renders on npmjs.com. Invented calls only. -->
 
-`pbx` reads the PBX's call records (CDR) from `Master.csv` or from the CDR database, and copies them into the
-local [WireCat](https://wirecat.dev) store: one meeting per call record, with the extension and the outside caller as
-its people. It links each call to its recording file. `meetings transcribe` turns the recordings into text with a
-speech model that runs on this computer. Then you and your agent list, read and search the calls with no network,
-next to the chats, mail and meetings of the other WireCat tools. `pbx` only reads: it never changes the PBX, its
-settings or a recording.
+`pbx` reads the PBX's call records (CDR, the call detail records) from `Master.csv` or from the CDR database, and
+copies them into the local [WireCat](https://wirecat.dev) store: one meeting per call, with the extension and the
+outside caller as its people. It links each call to its recording file. `meetings transcribe` turns the recordings
+into text with a speech model that runs on this computer. Then you and your agent count, read, search and mark the
+calls with no network, next to the chats, mail and meetings of the other WireCat tools. `pbx` only reads: it never
+changes the PBX, its settings or a recording.
 
 An example conversation (invented calls, illustrative output):
 
@@ -44,7 +45,7 @@ pbx office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv
 pbx office config set recordings_path /var/spool/asterisk/monitor
 pbx office config set cdr_timezone Europe/Moscow
 pbx office config set phone_region ru
-pbx office session start             # checks the source; asks a password only for a database
+pbx office session start             # checks the source; asks a password only where one is needed
 pbx office meetings sync             # import the call records and link their recordings
 pbx models download gigaam-v3        # the local speech model, once
 pbx office meetings transcribe       # transcribe up to 20 recorded calls
@@ -82,6 +83,27 @@ rest go on.
 pbx office meetings transcribe --max-meetings 50
 ```
 
+**Count the calls.** Calls by direction and outcome, per employee, by hour and by day, and the missed calls with
+whether the client was called back.
+
+```sh
+pbx office stats calls show --since-time 7d
+```
+
+**Search what was said.** By words, or by meaning with a local text model.
+
+```sh
+pbx office search meetings "refund"
+pbx office search meetings "a client unhappy with the delivery" --model embeddinggemma
+```
+
+**Mark calls.** Mark every call the search finds. A second run marks only the new calls.
+
+```sh
+pbx office tags add complaint --matching "refund OR complaint"
+pbx office tags list tag:complaint
+```
+
 More:
 
 - Find an operator across the calls: `pbx office meetings people "Anna"`.
@@ -102,8 +124,8 @@ pbx skill install
 pbx office mcp add claude-code --allow-writes   # or: codex
 ```
 
-`meetings sync` and `meetings transcribe` change the local store, so `mcp add` stops until you pass
-`--allow-writes`. The profile's permissions decide what an agent may run. Text from a call — a transcript, a caller
+`meetings sync`, `meetings transcribe`, `meetings embed` and `tags add` change the local store, so `mcp add` stops
+until you pass `--allow-writes`. The profile's permissions decide what an agent may run. Text from a call — a transcript, a caller
 name, a phone number — is marked `untrusted`: it is data for the agent, never instructions. `session start` and
 `session end` are never offered to an agent.
 
@@ -112,7 +134,7 @@ name, a phone number — is marked `untrusted`: it is data for the agent, never 
 - **Read-only against the PBX.** It opens Master.csv or a read-only database session and reads the recordings. It
   never writes, moves or deletes a file there, and needs no change to the dialplan.
 - **The recordings stay with you.** Speech is recognized on this computer. No recording or transcript goes to a speech
-  service.
+  service, unless you turn on cloud transcription for one profile.
 - **A call is one call.** The rows a ring group, a queue or a transfer writes are joined by their `linkedid`, and the
   call says what became of it: who answered after how long, who rang without answering, voicemail, busy or missed.
 - **One store with the other WireCat tools.** A caller's number is kept in the international form, as WhatsApp, MAX
@@ -123,14 +145,15 @@ name, a phone number — is marked `untrusted`: it is data for the agent, never 
 Each profile is one PBX. No command ever picks a profile for you; `pbx session list` lists them.
 
 ```sh
-pbx office session start             # checks the source, asks a password only for a database
+pbx office session start             # checks the source, asks each password it needs
 pbx office session status --check    # read the newest call records again
-pbx office session end               # forget the password; the imported calls stay
+pbx office session end               # forget the passwords; the imported calls stay
 ```
 
 A profile on a local or mounted `Master.csv` needs no password. A database profile asks for the password of a
-read-only user once, checks it, and keeps it in the system keyring. Where the keyring fails, it uses a private file and
-says so once. `PBX_TOKEN` in the environment is read first.
+read-only user once, checks it, and keeps it in the system keyring. A profile that also signs in to SSH or SFTP with a
+password asks for that one too, and keeps both in the same keyring entry. Where the keyring fails, it uses a private
+file and says so once. `PBX_TOKEN` in the environment is read first.
 
 ## Settings and permissions
 
@@ -144,24 +167,17 @@ More: [settings](docs/configuration.md).
 
 - **Call records.** `pbx` reads the call records (CDR) from Master.csv, from MySQL or MariaDB, and from PostgreSQL.
   These are the three places where Asterisk most often keeps its call history. `pbx` does not use CEL, AMI or ARI:
-  CEL is a log of each step inside a call, and AMI and ARI are interfaces that control calls while they happen. Call
-  history does not need them.
-- **Where the files are.** `pbx` reads Master.csv and the recordings on this computer, in a mounted folder, or on the
-  phone system over SFTP (secure file access through SSH, the remote login service of the phone system). A profile
-  keeps one saved password, so a profile that reads a database connects to SFTP with a key file. `pbx` does not open
-  an SSH tunnel (a secure connection) to a database that listens only on the phone system: open it yourself, as
-  [install and connect](docs/installation.md#a-cdr-database) shows. A second saved password and a built-in tunnel
-  are planned.
-- **Who said what.** Every recording is turned into text. A stereo recording in the sound formats MP3, Ogg or FLAC
-  keeps its two channels apart: set `recordings_channels`, and each line names the caller or the employee. Without
-  that setting, the lines say `Channel 1` and `Channel 2`. A mono recording gives the text without names, and so
-  does a WAV, GSM or M4A recording, because ffmpeg mixes its channels into one.
-- **Size.** Master.csv on this computer or in a mounted folder can be of any size: `pbx` reads it line by line. Read
-  over SFTP (the secure file access of the phone system), it can be up to 512 MB, because it is read into memory
-  whole. A recording can be up to one hour long, and up
-  to 2 GB for WAV, GSM and M4A or 256 MB for MP3, Ogg and FLAC.
-- **Speech recognition.** It runs on this computer only. A cloud speech-to-text service is planned, as an option you
-  turn on.
+  CEL (channel event logging) is a log of each step inside a call, and AMI and ARI are interfaces that control calls
+  while they happen. Call history does not need them.
+- **Playing a recording.** A call links its recording by the file's path, and you open the file in a player. No link
+  plays it in a browser. `meetings show` prints a link for WireCat Desktop (`wirecat://…`). It opens the call once
+  Desktop supports links to calls.
+- **Summaries.** `pbx` writes no summary of a call. Your agent reads the transcript and writes the summary.
+- **Who said what.** A stereo recording keeps its two channels apart: set `recordings_channels`, and each line names
+  the caller or the employee. A mono recording, one mixed track, gives the text without names.
+- **Length and size.** A recording longer than one hour is not transcribed. An MP3, Ogg or FLAC file can be up to
+  64 MB, which is more than an hour at usual phone quality. WAV, GSM and M4A files and Master.csv can be of any size.
+  A call that is not transcribed is listed, and the rest go on.
 
 More: [what is planned](docs/roadmap.md) · [compared with other tools](docs/compare.md) · [on wirecat.dev](https://wirecat.dev/en/docs/pbx/compare)
 

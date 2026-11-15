@@ -1,6 +1,6 @@
 ---
 name: asterisk-cli
-description: Use pbx, the WireCat CLI for Asterisk PBX phone calls, from an agent — find a call by time or number, read its transcript, transcribe new recordings, with the owner's profile and JSON answers. Use when a task needs the company's phone calls, what a caller said, or who called whom.
+description: Use pbx, the WireCat CLI for Asterisk PBX phone calls, from an agent — find a call by time, number, words or meaning, read its transcript, count calls per employee, mark calls, transcribe new recordings, with the owner's profile and JSON answers. Use when a task needs the company's phone calls, what a caller said, or who called whom.
 metadata:
   openclaw:
     requires:
@@ -39,3 +39,11 @@ Find your way with the tool itself, not this file:
 - No transcript yet? `meetings transcribe id:<id> --json` makes one on this computer, when the call has a recording.
   It needs the speech model; the error says how to get it.
 - `meetings sync --json` imports what is new from the PBX. It never changes the PBX.
+- Counts — calls per employee, missed calls and callbacks, by hour or day — come from
+  `stats calls show --since-time 7d --json`. Use it rather than counting `meetings list` yourself.
+- Find a call by what was said with `search meetings "refund" --json`; add `--model embeddinggemma` to find it by
+  meaning too. A hit says `by` words or meaning and quotes the passage, marked untrusted.
+- Mark calls with `tags add <tag> --matching "<search>" --json` or `--meeting <id>`; `tags list tag:<tag> --json`
+  lists them. A rerun marks only new calls.
+- A profile may set `transcribe_engine openai`: `meetings transcribe` then sends audio to a service and says so on
+  stderr. Never set it yourself; it is the owner's choice.

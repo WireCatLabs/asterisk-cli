@@ -15,10 +15,15 @@ for a support request.
 | "N call records could not be read" | Those rows have no start time; the rest were imported. |
 | `db.refused` | The database refused the user or the password. Run `session start` again. |
 | `db.no-table`, `db.no-select` | Set `db_table`, or grant the user `SELECT` on the table. |
-| `network_error` from the database | The server is not reachable from here. Use an SSH tunnel, as [connect your Asterisk](installation.md#a-cdr-database) shows. |
+| `network_error` from the database | The server is not reachable from here. Reach it through the phone system's SSH, as [a database behind the phone system's SSH](installation.md#a-database-behind-the-phone-systems-ssh) shows. |
+| `sftp.host-key-missing` | The SFTP or SSH server's key is not pinned yet. Compare the fingerprint in the message with `ssh-keygen -lf` on the server, then run the `config set` it names. |
+| "this profile needs 2 passwords" | Type each password when asked, or pipe them one per line in the order the message gives. |
+| `transcription.no-key` | The profile transcribes with OpenAI and has no key. Give it in `OPENAI_API_KEY`, or `config set transcribe_engine local`. |
 | A call has no recording | Check `recordings_path`, then `recordings_pattern`. A file changed in the last two minutes is left for the next sync. |
 | `model.not-downloaded` | Run `pbx models download gigaam-v3`, or the model the message names. |
-| A WAV or GSM call fails to transcribe | Install `ffmpeg`. |
+| A WAV, GSM or M4A call fails to transcribe | Install `ffmpeg`. |
+| A recording is listed as too long | A recording longer than one hour, or an MP3, Ogg or FLAC file over 64 MB, is not transcribed. |
+| `search meetings --model` or `meetings embed` says the model is missing | Run `pbx models download embeddinggemma`, or the model you named. |
 | The settings file does not read | `doctor` lists every problem in the file under `config.issues`. Run the `config unset` each one gives. |
 
 Never paste a password, a recording or a transcript into a support request.

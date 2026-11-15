@@ -4,8 +4,8 @@ A company's phone calls hold what clients asked for and what employees promised,
 they sit in a call log and a folder of recordings that no AI agent can read. `pbx`, the WireCat command-line tool for
 Asterisk, reads them where they are and keeps each call on your computer, with what became of it and what was said.
 
-Your agent can then prepare you for a callback, list the calls nobody returned, review a day of calls by employee
-and quote the call behind every answer. Each call sits next to the same person's chats, mail and CRM deals, because
+Your agent can then prepare you for a callback, list the calls nobody returned, report a week of calls by employee,
+find the calls where a client was unhappy, and quote the call behind every answer. Each call sits next to the same person's chats, mail and CRM deals, because
 all WireCat tools keep their data in one local store.
 
 **On this page:**
@@ -19,7 +19,14 @@ all WireCat tools keep their data in one local store.
 
 - **See each call as one call.** A ring group, a queue or a transfer writes several records; you get one call with
   its outcome (answered, voicemail, busy, not answered), who answered, how long the caller waited and talked.
-- **Read what was said.** Recordings are turned into text on your computer. No recording or transcript leaves it.
+- **Read what was said.** Recordings are turned into text on your computer. No recording or transcript leaves it,
+  unless you turn on cloud transcription for one profile.
+- **Count the calls.** `stats calls show` gives the calls by direction and outcome, per employee, by hour and by day,
+  and the missed calls with whether the client was called back.
+- **Find a call by what was said.** `search meetings` finds the calls by their words, or by their meaning with a text
+  model on your computer: "a client unhappy with the delivery" finds a call where nobody said those words.
+- **Mark calls.** `tags add complaint --matching "refund"` marks every call the search finds. Run it again after new
+  calls are transcribed, and it marks only those.
 - **Know who called.** A caller whose mobile number is in your CRM or your chats is the same person there. An office
   that serves several countries lists them, and a number that could belong to two of them is never guessed.
 - **Hand the work to an agent.** Callbacks, missed calls and the day by employee become requests in plain words; the
@@ -41,21 +48,17 @@ all WireCat tools keep their data in one local store.
 
 ## What it does not do yet
 
-- **Call statistics.** You can get the number of calls per employee, the missed calls and the talk time today: your
-  agent counts them from the calls, as in [a day of calls by employee](usage.md#ask-your-agent). `pbx` has no ready
-  report of its own yet.
-- **Search of what was said.** You can find a call by its words today: Memo searches the transcripts together with
-  your chats and mail. `pbx` itself does not search the text yet.
-- **Marks on calls by their words.** Your agent can read the transcripts and list the calls where a word was said,
-  such as every call about a refund. `pbx` does not mark those calls by itself yet.
 - **Summaries.** Your agent reads a transcript and writes the summary. `pbx` writes none of its own.
-- **Who said what.** Every recording is turned into text. A stereo recording in MP3, Ogg or FLAC names the caller
-  and the employee on each line when you set [`recordings_channels`](installation.md#transcribe). A mono recording,
-  and a WAV, GSM or M4A one, gives the text without names.
 - **Playing a recording.** A call links its recording by the file's path, and you open the file in a player. There
-  is no link that plays it in a browser.
-- **Recognition quality.** Speech is recognized on this computer, and the result depends on the recording and the
-  model. A noisy line or a call in two languages gives weaker text.
+  is no link that plays it in a browser. `meetings show` prints a link for WireCat Desktop, which opens the call once
+  Desktop supports links to calls.
+- **Who said what in a mono recording.** A stereo recording names the caller and the employee on each line when you
+  set [`recordings_channels`](installation.md#transcribe). A mono recording, one mixed track, gives the text without
+  names.
+- **Long recordings.** A recording longer than one hour is not transcribed. The call is listed with the reason, and
+  the rest go on.
+- **Recognition quality.** The result depends on the recording and the model. A noisy line or a call in two
+  languages gives weaker text.
 
 [Compared with other tools](compare.md) puts these next to FreePBX's own tools, Frogman and asterisk-ai-call-notes.
 
