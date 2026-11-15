@@ -79,7 +79,8 @@ beforeEach(async () => {
   let heard = ""
   const speech = fakeSpeech({
     decodeChannelsFile: async (path) => {
-      heard = SAID[Object.keys(SAID).find((call) => path.endsWith(call)) ?? ""] ?? ""
+      const posix = path.replaceAll("\\", "/")
+      heard = SAID[Object.keys(SAID).find((call) => posix.endsWith(call)) ?? ""] ?? ""
       return { channels: [{ samples: new Float32Array(80_000), rate: 8000 }], mixed: false }
     },
     recognizeLocalPieces: async () => [{ start: 0, end: 4, text: heard }],
@@ -136,7 +137,7 @@ it("meetings show draws the call's WireCat Desktop link for a person, and names 
   expect(JSON.stringify(json)).not.toContain("wirecat://")
   const [recording] = (json.item as { attachments: { kind: string; local_path: string | null }[] }).attachments
   expect(recording?.kind).toBe("recording")
-  expect(recording?.local_path?.endsWith(IN_CALL)).toBe(true)
+  expect(recording?.local_path?.replaceAll("\\", "/").endsWith(IN_CALL)).toBe(true)
   const off = await runCli(["office", "meetings", "show", id], { tty: true, env: { WIRECAT_LINKS: "off" } })
   expect(off.out).not.toContain("wirecat://")
 })
