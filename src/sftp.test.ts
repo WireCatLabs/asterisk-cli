@@ -122,7 +122,9 @@ it("syncs Master.csv and links recordings over SFTP, and transcribes a recording
   const done = await runCli(["office", "meetings", "transcribe", "--json"], { keyring, sftp: server.open, speech })
   expect(done.code, done.err).toBe(0)
   expect(done.json().item).toMatchObject({ transcribed: 1 })
-  expect(decoded).toEqual([{ path: expect.stringMatching(/pbx-recording-.*\/call\.wav$/), mode: 0o600, same: true }])
+  // Windows keeps no POSIX mode; the copy is private there because it sits in the user's own temp folder.
+  const mode = process.platform === "win32" ? expect.any(Number) : 0o600
+  expect(decoded).toEqual([{ path: expect.stringMatching(/pbx-recording-.*[\\/]call\.wav$/), mode, same: true }])
   expect(existsSync(decoded[0]?.path ?? "")).toBe(false)
   expect(server.streamed).toContain(`/var/spool/asterisk/monitor/${IN_CALL}`)
   expect(server.opened.every((options) => options.hostKey === KEY && options.username === "wirecat")).toBe(true)
