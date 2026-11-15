@@ -7,25 +7,22 @@ feature: it may already be on the way. The order can change, and there are no da
 ## What works today
 
 `pbx` reads the call records of an Asterisk PBX from `Master.csv`, or from a MySQL, MariaDB or PostgreSQL CDR
-table in a read-only session. It reads the files from this computer, a mounted folder, or the PBX over SFTP with a
-pinned server key. It keeps each call in the local WireCat store with its caller and the employees who placed or answered it, links it to its recording, and
-turns recordings into text on your computer. You and your agent list, read and export the calls with no network, over
-the command line or MCP. See [install and connect](installation.md).
+table in a read-only session, also through the phone system's SSH when the database listens only there. It reads the
+files from this computer, a mounted folder, or the PBX over SFTP with a pinned server key. It keeps each call in the
+local WireCat store with its caller and the employees who placed or answered it, links it to its recording, and turns
+recordings into text on your computer, or with OpenAI when you turn that on for a profile. You and your agent count
+the calls, search them by words and by meaning, mark them, and list, read and export them with no network, over the
+command line or MCP. See [install and connect](installation.md).
 
 ## Later
 
 - Find missed calls and calls in one direction with a filter on `meetings list`.
-- Call stats: calls per extension and per hour, and the share of missed calls.
-- Search the text of the calls, and mark calls by the words said in them.
-- Keep a database password and an SFTP password in one profile.
-- Open the SSH tunnel (a secure connection) to a database that listens only on the PBX, so you do not run `ssh -L` yourself.
-- Read a `Master.csv` of any size over SFTP, as from a local or mounted folder.
-- Speech recognition by a cloud service, as an option you turn on.
-- Read Asterisk's CEL log, where transfers and queues are exact.
+- Read Asterisk's CEL log (channel event logging), where transfers and queues are exact.
+- Open a call in WireCat Desktop from the link `meetings show` prints, once Desktop supports links to calls.
 
 ## What it will not do
 
 `pbx` stays read-only against the PBX. It will not change the PBX settings, place or end calls, or delete a
-recording. A recording is never sent to a cloud service unless you turn that option on.
+recording. A recording is never sent to a cloud service unless you turn that option on for the profile.
 
 What changed in each released version is in the [changelog](../CHANGELOG.md).

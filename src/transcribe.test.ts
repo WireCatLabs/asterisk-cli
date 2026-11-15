@@ -3,8 +3,7 @@ import { join } from "node:path"
 import type { Pcm } from "@wirecat/cli-core/speech"
 import { beforeEach, expect, it } from "vitest"
 import type { Speech } from "./commands/transcribe.js"
-import { asteriskFolder, configure, freshFolders, runCli } from "./testing/harness.js"
-import { largestRecording } from "./transcribe-calls.js"
+import { asteriskFolder, configure, fakeSpeech, freshFolders, runCli } from "./testing/harness.js"
 
 const EXAMPLES = new URL("../examples/", import.meta.url)
 const IN_CALL = "monitor/2026/10/31/in-74950000000-79000000001-20261031-120000-1761901200.11.wav"
@@ -12,18 +11,7 @@ const OUT_CALL = "monitor/2026/10/31/out-89000000002-102-20261031-130000-1761904
 
 const mono = (): Pcm => ({ samples: new Float32Array(8000 * 10), rate: 8000 })
 
-const speech = (overrides: Partial<Speech> = {}): Speech => ({
-  findModel: ((id: string) => (id === "gigaam-v3" ? { id } : undefined)) as Speech["findModel"],
-  isInstalled: () => true,
-  modelsDirectory: () => "/models",
-  localSpeechRecognitionModel: ((model: string) => ({ engine: "sherpa-onnx", model, version: "1" })) as never,
-  decodeChannels: async () => ({ channels: [mono()], mixed: true }),
-  recognizeLocalPieces: async () => [
-    { start: 0, end: 3, text: "Здравствуйте, по поводу оплаты" },
-    { start: 3.5, end: 6, text: "оплатим в пятницу" },
-  ],
-  ...overrides,
-})
+const speech = fakeSpeech
 
 const transcribe = (args: string[], options: { speech: Speech }) =>
   runCli(["office", "meetings", "transcribe", ...args, "--json"], options)
@@ -68,10 +56,10 @@ it("transcribes the calls that have a recording, counts those without, and finds
 it("lists a recording that cannot be decoded and goes on with the rest", async () => {
   let calls = 0
   const failing = speech({
-    decodeChannels: async () => {
+    decodeChannelsFile: async () => {
       calls++
       if (calls === 1) throw new Error("ffmpeg is not installed")
-      return { channels: [mono()], mixed: true }
+      return { channels: [mono()], mixed: false }
     },
   })
   const done = await transcribe([], { speech: failing })
@@ -98,7 +86,7 @@ it("stops at --max-meetings, and --replace transcribes again what has a transcri
 const stereo = (): Speech => {
   let heard = 0
   return speech({
-    decodeChannels: async () => ({ channels: [mono(), mono()], mixed: false }),
+    decodeChannelsFile: async () => ({ channels: [mono(), mono()], mixed: false }),
     recognizeLocalPieces: async () =>
       heard++ % 2 === 0
         ? [{ start: 0, end: 2, text: "Добрый день, компания" }]
@@ -137,8 +125,94 @@ it("keeps Channel 1 and Channel 2 without recordings_channels, and refuses anoth
   expect(set.err).toContain("caller,employee or employee,caller")
 })
 
-it("reads what ffmpeg decodes up to 2 GB, since its output stops at an hour, and MP3, Ogg and FLAC up to 256 MB", () => {
-  expect(largestRecording("in-1761901200.11.WAV")).toBe(2 * 1024 ** 3 - 1)
-  expect(largestRecording("1761908400.31.gsm")).toBe(2 * 1024 ** 3 - 1)
-  expect(largestRecording("external-1761904800.21.mp3")).toBe(256 * 1024 ** 2)
+it("decodes each recording where it lies, by its path, with nothing held in memory first", async () => {
+  const paths: string[] = []
+  const done = await transcribe([], {
+    speech: speech({
+      decodeChannelsFile: async (path) => {
+        paths.push(path)
+        return { channels: [mono()], mixed: false }
+      },
+    }),
+  })
+  expect(done.code, done.err).toBe(0)
+  expect(paths.sort()).toEqual([join(root, IN_CALL), join(root, OUT_CALL)].sort())
+})
+
+const CLOUD_LINE =
+  "the recordings' audio leaves this computer: it goes to api.openai.com (gpt-transcribe) to be transcribed"
+
+/** cli-core's cloud speech as a profile set to openai gets it: it says where the audio goes before the first piece. */
+const cloud =
+  (seen: unknown[]): Speech["cloudSpeech"] =>
+  (deps) => {
+    seen.push(deps.settings.configured)
+    if (deps.settings.configured.transcribeWith !== "openai") return null
+    let told = false
+    return {
+      baseUrl: "https://api.openai.com/v1",
+      leavesComputer: true,
+      recognition: { engine: "openai", model: "gpt-transcribe" },
+      recognize: async () => {
+        if (!told) deps.notify(CLOUD_LINE)
+        told = true
+        return [{ start: 0, end: 2, text: "хочу вернуть деньги" }]
+      },
+    }
+  }
+
+it("a profile set to transcribe with openai sends the audio there, and says so before the first call", async () => {
+  await configure({ transcribe_engine: "openai", transcribe_model: "gpt-transcribe" })
+  const seen: unknown[] = []
+  const done = await transcribe([], { speech: speech({ cloudSpeech: cloud(seen), isInstalled: () => false }) })
+  expect(done.code, done.err).toBe(0)
+  expect(done.json().item).toMatchObject({ transcribed: 2 })
+  expect(seen).toEqual([{ transcribeWith: "openai", transcribeModel: "gpt-transcribe" }])
+  expect(done.err.indexOf(CLOUD_LINE)).toBeLessThan(done.err.indexOf("transcribed"))
+  expect(done.err.split(CLOUD_LINE)).toHaveLength(2)
+})
+
+it("only the profile's own setting sends audio away: one in the shared defaults stays local", async () => {
+  const set = await runCli(["config", "set", "transcribe_engine", "openai", "--defaults", "--json"])
+  expect(set.code, set.err).toBe(0)
+  const seen: unknown[] = []
+  const done = await transcribe([], { speech: speech({ cloudSpeech: cloud(seen) }) })
+  expect(done.code, done.err).toBe(0)
+  expect(seen).toEqual([{ transcribeWith: undefined, transcribeModel: undefined }])
+  expect(done.err).not.toContain("leaves this computer")
+})
+
+it("openai without the local voice detector refuses before any audio is read or sent, naming the download", async () => {
+  await configure({ transcribe_engine: "openai" })
+  const seen: unknown[] = []
+  const done = await transcribe([], {
+    speech: speech({ cloudSpeech: cloud(seen), vadPath: () => "/nowhere/vad.onnx" }),
+  })
+  expect(done.json()).toMatchObject({ error: { reason: "model.not-downloaded" } })
+  expect(done.err).toContain("pbx models download gigaam-v3")
+  expect(done.err).not.toContain("leaves this computer")
+})
+
+it("openai without a key refuses before any recording is read, and names the variable that gives it", async () => {
+  await configure({ transcribe_engine: "openai" })
+  const { cloudSpeech } = await import("@wirecat/cli-core/speech")
+  let read = 0
+  const done = await transcribe([], {
+    speech: speech({
+      cloudSpeech,
+      decodeChannelsFile: async () => {
+        read++
+        return { channels: [mono()], mixed: false }
+      },
+    }),
+  })
+  expect(done.json()).toMatchObject({ error: { reason: "transcription.no-key" } })
+  expect(done.err).toContain("OPENAI_API_KEY")
+  expect(read).toBe(0)
+})
+
+it("transcribe_engine takes local or openai only", async () => {
+  const set = await runCli(["office", "config", "set", "transcribe_engine", "whisper", "--json"])
+  expect(set.code).not.toBe(0)
+  expect(set.err).toContain("local or openai")
 })

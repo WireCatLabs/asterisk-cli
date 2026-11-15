@@ -23,14 +23,11 @@ it("local files answer nothing for a missing file, folder or a folder given as a
   expect(await files.stat(join(root, "nope.wav"))).toBeNull()
   expect(await files.stat(root)).toBeNull()
   expect(await files.list(join(root, "nope"))).toEqual([])
-  await expect(files.read(join(root, "nope.wav"), 10)).rejects.toMatchObject({
-    code: "not_found",
-    details: { reason: "file.missing" },
-  })
-  const big = written(join(root, "big.wav"), "x".repeat(2 * 1024 * 1024))
-  const refused = files.read(big, 1024 * 1024)
-  await expect(refused).rejects.toMatchObject({ details: { reason: "file.too-large" } })
-  await expect(refused).rejects.not.toThrow(root)
+  const reading = (async () => {
+    for await (const _ of files.stream(join(root, "nope.wav"))) return
+  })()
+  await expect(reading).rejects.toMatchObject({ code: "not_found", details: { reason: "file.missing" } })
+  await expect(reading).rejects.not.toThrow(root)
   await files.close()
 })
 
@@ -65,6 +62,7 @@ it("reads a Master.csv larger than one read piece, with names and newlines insid
       cdr: { kind: "csv", path, columns: null },
       recordings: null,
       recordingSides: null,
+      tunnel: null,
       files: { kind: "local" },
       zone: "UTC",
       phoneRegions: [],

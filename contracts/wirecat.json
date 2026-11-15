@@ -191,9 +191,21 @@
     {
       "path": [
         "meetings",
+        "embed"
+      ],
+      "summary": "preview building the vectors search by meaning reads; --yes builds one batch, rerun for the next",
+      "effects": {
+        "remote": "read",
+        "local": "write"
+      },
+      "permission": "meetings.embed"
+    },
+    {
+      "path": [
+        "meetings",
         "transcribe"
       ],
-      "summary": "turn call recordings into text, on this computer",
+      "summary": "turn call recordings into text, on this computer or a chosen service",
       "effects": {
         "remote": "read",
         "local": "write"
@@ -213,6 +225,72 @@
       },
       "permission": "events.list",
       "entity": "event"
+    },
+    {
+      "path": [
+        "stats",
+        "calls",
+        "show"
+      ],
+      "summary": "calls by direction, outcome, employee, hour and day; missed calls and callbacks",
+      "effects": {
+        "remote": "none",
+        "local": "read"
+      },
+      "permission": "stats.calls.show",
+      "entity": "call_stats"
+    },
+    {
+      "path": [
+        "search",
+        "meetings"
+      ],
+      "summary": "find words in stored meetings, and by meaning with --model",
+      "effects": {
+        "remote": "read",
+        "local": "write"
+      },
+      "permission": "search.meetings",
+      "entity": "meeting_hit"
+    },
+    {
+      "path": [
+        "tags",
+        "add"
+      ],
+      "summary": "put tags on stored meetings",
+      "effects": {
+        "remote": "none",
+        "local": "write"
+      },
+      "permission": "tags.add",
+      "entity": "meeting_tag_change"
+    },
+    {
+      "path": [
+        "tags",
+        "remove"
+      ],
+      "summary": "take tags off stored meetings",
+      "effects": {
+        "remote": "none",
+        "local": "write"
+      },
+      "permission": "tags.remove",
+      "entity": "meeting_tag_change"
+    },
+    {
+      "path": [
+        "tags",
+        "list"
+      ],
+      "summary": "tagged meetings of this account, with their tags",
+      "effects": {
+        "remote": "none",
+        "local": "read"
+      },
+      "permission": "tags.list",
+      "entity": "meeting_tagging"
     },
     {
       "path": [
@@ -238,6 +316,32 @@
         "local": "write"
       },
       "permission": "models.download",
+      "entity": "model"
+    },
+    {
+      "path": [
+        "models",
+        "set"
+      ],
+      "summary": "use this text model for every embed and search by meaning, in every CLI",
+      "effects": {
+        "remote": "none",
+        "local": "write"
+      },
+      "permission": "models.set",
+      "entity": "model"
+    },
+    {
+      "path": [
+        "models",
+        "add"
+      ],
+      "summary": "add an ONNX embedding model from Hugging Face, pinned and checked by sha256",
+      "effects": {
+        "remote": "read",
+        "local": "write"
+      },
+      "permission": "models.add",
       "entity": "model"
     },
     {
@@ -525,6 +629,11 @@
         "updated_at"
       ]
     },
+    "meeting_tagging": {
+      "fields": [
+        "tag"
+      ]
+    },
     "model": {
       "fields": [
         "kind",
@@ -565,6 +674,7 @@
   },
   "network": {
     "hosts": [
+      "api.openai.com",
       "registry.npmjs.org",
       "huggingface.co",
       "*.huggingface.co",
@@ -572,7 +682,7 @@
       "github.com",
       "*.githubusercontent.com"
     ],
-    "user_hosts": "the Asterisk CDR database or SFTP server you set up"
+    "user_hosts": "the Asterisk CDR database, its SSH server or the SFTP server you set up"
   },
   "desktop": {
     "tagline": "Asterisk calls and recordings, searchable",

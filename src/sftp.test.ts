@@ -1,10 +1,9 @@
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync, statSync } from "node:fs"
 import { posix } from "node:path"
 import { CliError, memoryKeyring } from "@wirecat/cli-base"
 import type { SftpClient, SftpEntry, SftpOptions } from "@wirecat/cli-core/sftp"
 import { beforeEach, expect, it } from "vitest"
-import type { Speech } from "./commands/transcribe.js"
-import { configure, freshFolders, runCli } from "./testing/harness.js"
+import { configure, fakeSpeech, freshFolders, runCli } from "./testing/harness.js"
 
 const PASSWORD = "test-sftp-password-91c2"
 const KEY = "SHA256:dGVzdC1ob3N0LWtleS1maW5nZXJwcmludC0wMDAwMDA"
@@ -19,6 +18,7 @@ const fakeServer = () => {
     [`/var/spool/asterisk/monitor/${IN_CALL}`, readFileSync(new URL(`monitor/${IN_CALL}`, EXAMPLES))],
   ])
   const opened: SftpOptions[] = []
+  const streamed: string[] = []
   const entry = (path: string, kind: SftpEntry["kind"], size = 0): SftpEntry => ({
     name: posix.basename(path),
     kind,
@@ -49,10 +49,16 @@ const fakeServer = () => {
         if (!bytes) throw notFound()
         return bytes
       },
+      readStream: async function* (path) {
+        const bytes = files.get(path)
+        if (!bytes) throw notFound()
+        streamed.push(path)
+        for (let at = 0; at < bytes.length; at += 4096) yield bytes.subarray(at, at + 4096)
+      },
       close: async () => {},
     }
   }
-  return { open, opened }
+  return { open, opened, streamed }
 }
 
 const hostKey = async () => ({ algorithm: "ssh-ed25519", fingerprint: KEY })
@@ -102,28 +108,56 @@ it("syncs Master.csv and links recordings over SFTP, and transcribes a recording
   expect(synced.code, synced.err).toBe(0)
   const listed = await runCli(["office", "meetings", "list", "--json"], { keyring })
   expect(listed.json().items).toHaveLength(5)
-  const speech: Speech = {
-    findModel: ((id: string) => ({ id })) as Speech["findModel"],
-    isInstalled: () => true,
-    modelsDirectory: () => "/models",
-    localSpeechRecognitionModel: ((model: string) => ({ engine: "sherpa-onnx", model, version: "1" })) as never,
-    decodeChannels: async () => ({ channels: [{ samples: new Float32Array(80_000), rate: 8000 }], mixed: true }),
-    recognizeLocalPieces: async () => [{ start: 0, end: 3, text: "оплатим в пятницу" }],
-  }
+  const decoded: { path: string; mode: number; same: boolean }[] = []
+  const speech = fakeSpeech({
+    decodeChannelsFile: async (path) => {
+      decoded.push({
+        path,
+        mode: statSync(path).mode & 0o777,
+        same: readFileSync(path).equals(readFileSync(new URL(`monitor/${IN_CALL}`, EXAMPLES))),
+      })
+      return { channels: [{ samples: new Float32Array(80_000), rate: 8000 }], mixed: false }
+    },
+  })
   const done = await runCli(["office", "meetings", "transcribe", "--json"], { keyring, sftp: server.open, speech })
   expect(done.code, done.err).toBe(0)
   expect(done.json().item).toMatchObject({ transcribed: 1 })
+  expect(decoded).toEqual([{ path: expect.stringMatching(/pbx-recording-.*\/call\.wav$/), mode: 0o600, same: true }])
+  expect(existsSync(decoded[0]?.path ?? "")).toBe(false)
+  expect(server.streamed).toContain(`/var/spool/asterisk/monitor/${IN_CALL}`)
   expect(server.opened.every((options) => options.hostKey === KEY && options.username === "wirecat")).toBe(true)
 })
 
-it("a database profile reads files over SFTP only with a key file", async () => {
-  await configure({ sftp_host_key: KEY, cdr_source: "mysql", db_host: "db", db_name: "cdr", db_user: "reader" })
-  const synced = await runCli(["office", "meetings", "sync", "--json"], {
-    keyring: memoryKeyring({ "asterisk-cli:token:office": "db-password" }),
+it("a profile kept by 0.5.0, its SFTP password as the token, still reads", async () => {
+  await configure({ sftp_host_key: KEY })
+  const synced = await runCli(["office", "meetings", "sync", "--since-time", "2026-10-01T00:00:00Z", "--json"], {
+    keyring: memoryKeyring({ "asterisk-cli:token:office": PASSWORD }),
     sftp: fakeServer().open,
   })
-  expect(synced.json()).toMatchObject({ error: { code: "configuration_error", reason: "source.not-configured" } })
-  expect(synced.err).toContain("sftp_key_path")
+  expect(synced.code, synced.err).toBe(0)
+})
+
+it("a database profile with an SFTP password keeps it beside the database's, and transcribes with it alone", async () => {
+  await configure({ sftp_host_key: KEY, cdr_source: "mysql", db_host: "db", db_name: "cdr", db_user: "reader" })
+  const keyring = memoryKeyring()
+  const server = fakeServer()
+  const sql = async () => ({ rows: async () => [], close: async () => {} })
+  const started = await runCli(["office", "session", "start", "--json"], {
+    keyring,
+    sftp: server.open,
+    sql,
+    stdin: `db-password\n${PASSWORD}\n`,
+  })
+  expect(started.code, started.err).toBe(0)
+  expect(started.json().item).toMatchObject({ passwords: ["db", "sftp"] })
+  expect([...keyring.entries.keys()]).toEqual(["asterisk-cli:token:office"])
+  const done = await runCli(["office", "meetings", "transcribe", "--json"], {
+    keyring,
+    sftp: server.open,
+    speech: fakeSpeech(),
+  })
+  expect(done.code, done.err).toBe(0)
+  expect(server.opened.at(-1)?.auth).toEqual({ password: PASSWORD })
 })
 
 it("sftpFiles signs in with a key file, needs a password without one, and answers nothing for what is not a file", async () => {
@@ -145,6 +179,9 @@ it("sftpFiles signs in with a key file, needs a password without one, and answer
         throw missingFile()
       },
       readFile: async () => new Uint8Array([1]),
+      readStream: async function* () {
+        yield new Uint8Array([1])
+      },
       close: async () => {},
     }
   }
@@ -155,7 +192,9 @@ it("sftpFiles signs in with a key file, needs a password without one, and answer
   expect(await files.stat("/dir")).toBeNull()
   expect(await files.stat("/nope")).toBeNull()
   expect(await files.list("/nope")).toEqual([])
-  expect(await files.read("/x", 10)).toEqual(new Uint8Array([1]))
+  const pieces: Uint8Array[] = []
+  for await (const piece of files.stream("/x")) pieces.push(piece)
+  expect(pieces).toEqual([new Uint8Array([1])])
   await files.close()
   await expect(sftpFiles({ ...place, keyPath: "/nonexistent/key" }, undefined, { open })).rejects.toMatchObject({
     details: { reason: "source.bad-setting" },

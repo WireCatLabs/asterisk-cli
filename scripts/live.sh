@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The release's live check (WC-TEST-18, WC-REL-17): the built CLI against a real MariaDB and a real PostgreSQL server
 # in Docker, each holding the CDR rows of examples/Master.csv in FreePBX's table shape and a user that may only
-# SELECT, and against the Master.csv file itself. The unit tests drive the SQL drivers through stand-ins; this run
+# SELECT, and against the Master.csv file itself. MariaDB is read once more through an SSH server that only forwards,
+# as FreePBX's database is reached, with the recordings over SFTP: three passwords in one profile. The unit tests drive the SQL drivers through stand-ins; this run
 # is where mysql2, pg, a read-only session and a password on stdin meet real servers. No PBX and no owner account:
 # every folder is temporary, the keyring is out of reach, and the containers are removed at the end.
 #   scripts/live.sh
@@ -11,14 +12,15 @@ root=$(cd -- "$(dirname -- "$0")/.." && pwd)
 work=$(mktemp -d)
 run="asterisk-live-$$"
 cleanup() {
-  docker rm -f "$run-mariadb" "$run-postgres" "$run-sftp" >/dev/null 2>&1 || true
+  docker rm -f "$run-mariadb" "$run-postgres" "$run-sftp" "$run-ssh" >/dev/null 2>&1 || true
+  docker network rm "$run-net" >/dev/null 2>&1 || true
   rm -rf "$work"
 }
 trap cleanup EXIT
 
 export PBX_CONFIG_DIR="$work/config" PBX_STATE_DIR="$work/state" PBX_CACHE_DIR="$work/cache"
 export MESSAGING_STORE="$work/wirecat.db"
-unset PBX_TOKEN
+unset PBX_TOKEN PBX_TOKEN_SFTP PBX_TOKEN_SSH OPENAI_API_KEY
 # Only the CLI loses the keyring: docker reads its registry login over D-Bus.
 cli=(env DBUS_SESSION_BUS_ADDRESS=disabled: node "$root/dist/bin/pbx.js")
 password=$(node -e 'process.stdout.write(require("node:crypto").randomBytes(18).toString("base64url"))')
@@ -29,8 +31,16 @@ pnpm --dir "$root" -s build >/dev/null
   const answer = JSON.parse(require("fs").readFileSync(0, "utf8"))
   if (answer.wcat_describe !== 2 || !/^[0-9a-f]{64}$/.test(answer.manifest_sha256)) throw new Error("not format 2")'
 
-docker run -d --name "$run-mariadb" -p 127.0.0.1::3306 -e MARIADB_ROOT_PASSWORD="$password" \
+docker network create "$run-net" >/dev/null
+docker run -d --name "$run-mariadb" --network "$run-net" -p 127.0.0.1::3306 -e MARIADB_ROOT_PASSWORD="$password" \
   -e MARIADB_DATABASE=asteriskcdrdb mariadb:11.4 >/dev/null
+# An SSH server beside the database, as on a FreePBX box: it may forward to MariaDB and do nothing else.
+ssh_password="$password-ssh"
+docker run -d --name "$run-ssh" --network "$run-net" -p 127.0.0.1::22 -e SSH_PASSWORD="$ssh_password" alpine:3.22 sh -c \
+  'apk add --no-cache -q openssh && ssh-keygen -A && adduser -D -s /sbin/nologin wirecat &&
+   echo "wirecat:$SSH_PASSWORD" | chpasswd 2>/dev/null &&
+   exec /usr/sbin/sshd -D -e -o AllowTcpForwarding=yes -o PasswordAuthentication=yes -o PermitTTY=no \
+     -o ForceCommand=/bin/false' >/dev/null
 # The PBX's folders as an SFTP server shows them, read only, to a user with a password.
 mkdir -p "$work/pbx/cdr-csv" "$work/pbx/monitor"
 cp "$root/examples/Master.csv" "$work/pbx/cdr-csv/"
@@ -153,6 +163,50 @@ if printf 'wrong\n' | "${cli[@]}" live-postgres session start --credential-stora
 fi
 grep -q '"db.refused"' "$work/wrong.json"
 ! grep -q "$password" "$work/wrong.json"
+# The tunnel: the SSH server's key is shown and pinned as SFTP's was, then three passwords go in, one per line.
+ssh_port=$(port "$run-ssh" 22)
+for _ in $(seq 60); do docker exec "$run-ssh" pgrep -x sshd >/dev/null 2>&1 && break; sleep 1; done
+for setting in "cdr_source mysql" "db_host $run-mariadb" "db_port 3306" "db_name asteriskcdrdb" "db_user reader" \
+  "db_ssh_host 127.0.0.1" "db_ssh_port $ssh_port" "db_ssh_user wirecat" "files_from sftp" "sftp_host 127.0.0.1" \
+  "sftp_port $sftp_port" "sftp_user wirecat" "sftp_host_key $shown" "recordings_path /pbx/monitor" \
+  "cdr_timezone UTC" "phone_region ru"; do
+  "${cli[@]}" live-tunnel config set ${setting} >/dev/null
+done
+three=$(printf '%s\n%s\n%s\n' "$password" "$ssh_password" "$password")
+if printf '%s\n' "$three" | "${cli[@]}" live-tunnel session start --json >"$work/unpinned-ssh.json" 2>&1; then
+  echo "an unpinned SSH server was accepted" >&2
+  exit 1
+fi
+ssh_shown=$(grep -o 'SHA256:[A-Za-z0-9+/=]*' "$work/unpinned-ssh.json" | head -1)
+ssh_actual=$(docker exec "$run-ssh" ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $2}')
+[ -n "$ssh_shown" ] && [ "$ssh_shown" = "$ssh_actual" ] || { echo "the SSH fingerprint shown is not the server's" >&2; exit 1; }
+! grep -q "$ssh_password" "$work/unpinned-ssh.json"
+"${cli[@]}" live-tunnel config set db_ssh_host_key "$ssh_shown" >/dev/null
+printf '%s\n' "$three" | "${cli[@]}" live-tunnel session start --credential-storage file --json |
+  grep -q '"passwords":\["db","ssh","sftp"\]' || { echo "the tunnel profile did not keep three passwords" >&2; exit 1; }
+"${cli[@]}" live-tunnel meetings sync --since-time 2026-10-01T00:00:00Z --json >/dev/null
+count live-tunnel 5
+tunneled=$("${cli[@]}" live-tunnel meetings list --limit 100 --json | node -e '
+  const list = JSON.parse(require("fs").readFileSync(0, "utf8"))
+  console.log(list.items.find(({ title }) => title === "+79000000001 → 101").id)')
+"${cli[@]}" live-tunnel meetings show "$tunneled" --json | grep -q '"kind":"recording"' ||
+  { echo "no recording linked over SFTP beside the tunnel" >&2; exit 1; }
+"${cli[@]}" live-tunnel session status --check --json | grep -q '"verified":true'
+"${cli[@]}" live-tunnel session end --json >/dev/null
+
+# The calls' numbers and marks, from the store the CSV profile filled.
+"${cli[@]}" live-csv stats calls show --since-time 2026-10-01 --json | node -e '
+  const { item } = JSON.parse(require("fs").readFileSync(0, "utf8"))
+  if (item.calls !== 5 || item.by_direction.incoming !== 3 || item.missed.calls !== 1) throw new Error("stats are off")'
+marked=$("${cli[@]}" live-csv meetings list --limit 100 --json | node -e '
+  const list = JSON.parse(require("fs").readFileSync(0, "utf8"))
+  console.log(list.items.find(({ title }) => title === "+79000000001 → 101").id)')
+"${cli[@]}" live-csv tags add callback --meeting "$marked" --json >/dev/null
+"${cli[@]}" live-csv tags list tag:callback --json | node -e '
+  const list = JSON.parse(require("fs").readFileSync(0, "utf8"))
+  if (list.items.length !== 1) throw new Error(`${list.items.length} marked calls, not 1`)'
+"${cli[@]}" live-csv search meetings refund --json >/dev/null
+
 "${cli[@]}" doctor --json >/dev/null
 
-echo "live check passed: describe format 2; Master.csv, MariaDB 11.4 and PostgreSQL 18 each imported 5 calls (6 CDR rows, a transfer joined) twice without doubles; SFTP (atmoz/sftp) shown its key, pinned, read Master.csv and linked recordings; a wrong password refused"
+echo "live check passed: describe format 2; Master.csv, MariaDB 11.4 and PostgreSQL 18 each imported 5 calls (6 CDR rows, a transfer joined) twice without doubles; SFTP (atmoz/sftp) shown its key, pinned, read Master.csv and linked recordings; MariaDB through an OpenSSH tunnel, its key shown and pinned, with three passwords in one profile; stats, a mark and a search over the stored calls; a wrong password refused"

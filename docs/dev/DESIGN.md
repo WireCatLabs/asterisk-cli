@@ -55,7 +55,7 @@ Owner, 2026-11-12.
   role `client` when `phone_region` makes it international, else `number:<as written>`, which matches nothing in other
   sources. With several countries, a number that two of them read differently stays `number:`: no guess. The roles are beeline's.
 - **The cursor** is cli-core's: when the last sync began, read again six hours earlier, since a CDR row is written when
-  the call ends. Master.csv is read whole and filtered; a database is asked from the cursor, in its wall time, in pages
+  the call ends. Master.csv is read line by line and filtered; a database is asked from the cursor, in its wall time, in pages
   of 5,000 ordered by time and uniqueid.
 - **Times** without a zone are read in `cdr_timezone` with cli-core's `localMoment` (WC-TIME-3). The SQL drivers
   return the wall time as text, never a `Date` made in this computer's zone.
@@ -64,11 +64,23 @@ Owner, 2026-11-12.
   twice.
 - **Mono is fine.** MixMonitor writes one mixed track by default; it is one transcript with no speakers. Two separate
   channels are named `Channel 1` and `Channel 2`, since which side is which depends on the dialplan.
-- **One password per profile:** the database's, or the SFTP user's when no key file is set.
-- **The SQL drivers** (`mysql2`, `pg`) live here, not in cli-core: no other CLI reads a SQL server, and they would make
-  every CLI's install heavier. They stay outside the bundle (`--external`) and load only for a database source.
-- **The transcription loop** is beeline's, adapted. A third copy should move into cli-core instead.
+- **Passwords in one keyring entry.** The database password is the profile's token. The SFTP password of a profile on
+  Master.csv is the token too, so a profile signed in before a profile could keep two still reads. Any other password
+  is a named secret beside the token (`sftp`, `ssh`, cli-core's `writeSecret`). `session start` asks them in a fixed
+  order, the database's, the SSH user's, the SFTP user's; piped, one per line in that order, since a pipe is read once.
+- **The SSH tunnel** is cli-core's `openSshTunnel`, opened per command and closed with the reader, its key pinned in
+  `db_ssh_host_key` as SFTP's is. `db_host` is the database as the SSH server sees it.
+- **The SQL reader** is cli-core's `openSqlReader` (`@wirecat/cli-core/sql`); `src/cdr/sql.ts` keeps only the CDR
+  schema: the start column, the order that tells a transfer's legs apart, and which form of the cursor to compare.
+  `mysql2`, `pg` and `ssh2` stay outside the bundle (`--external`) and load only for a database or SFTP source.
+- **Cloud transcription is `transcribe_engine`, read from the profile's own section.** cli-core's `transcribe_with` is
+  a messenger setting that a non-messenger cannot set, and cloud speech must never be turned on from `defaults`.
+- **The Desktop link** is printed in the terminal view of `meetings show` only: cli-core's `meeting_details` entity
+  has no field for it, and `url` is the link that joins a meeting.
+- **The transcription loop** is beeline's, adapted. A third copy should move into cli-core instead. A recording is
+  decoded by its path; one on the server is streamed into a private temporary file first, hashed as it is read.
 
 ## Open questions for the owner
 
-- Whether `files_from sftp` should also read the CDR database through an SSH tunnel of its own.
+- Whether `files_from sftp` and the database's SSH tunnel should share one SSH user and password when they name the
+  same server.

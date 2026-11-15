@@ -54,12 +54,13 @@ const mcpCommand = () =>
 
 const FIRST_SCREEN: FirstScreen = {
   pitch:
-    "Asterisk PBX calls in a local store: transcribe the recordings on this computer, then read and search offline.",
+    "Asterisk PBX calls in a local store: transcribe the recordings, then count, search and mark the calls offline.",
   can: [
     { command: "meetings sync", does: "import the call records and link their recordings" },
-    { command: "meetings transcribe", does: "turn new recordings into text, locally" },
-    { command: 'meetings list "duration_ms>=60000"', does: "the calls of a minute or more, newest first" },
-    { command: "meetings transcript <meeting>", does: "what was said in one call" },
+    { command: "meetings transcribe", does: "turn new recordings into text, on this computer by default" },
+    { command: "stats calls show --since-time 7d", does: "the week's calls: missed, answered, per employee" },
+    { command: 'search meetings "refund"', does: "the calls where those words were said" },
+    { command: 'tags add complaint --matching "refund"', does: "mark every call the search finds" },
     { command: "mcp serve", does: "the calls for an agent, within the profile's permissions" },
   ],
   start: `${IDENTITY.command} office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv`,

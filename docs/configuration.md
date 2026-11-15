@@ -23,6 +23,9 @@ What each setting means is on [install and connect](installation.md).
 | `db_host`, `db_port`, `db_name`, `db_user` | —, 3306 or 5432 | the CDR database; the password is kept by `session start` |
 | `db_table` | `cdr` | the CDR table |
 | `db_tls` | `false` | an encrypted connection with a checked certificate |
+| `db_ssh_host`, `db_ssh_port`, `db_ssh_user` | —, 22, — | the SSH server that reaches a database listening only on the phone system |
+| `db_ssh_key_path` | — | a private key file for that SSH server; without it `session start` asks the SSH password |
+| `db_ssh_host_key` | — | that SSH server's key fingerprint, `SHA256:…`, that you checked; nothing connects until it is set |
 | `recordings_path` | — | the folder of the recordings |
 | `recordings_pattern` | FreePBX's, then `*{uniqueid}*` | how a recording's name holds the call |
 | `recordings_channels` | — | who speaks on each channel of a stereo recording: `caller,employee` or `employee,caller` |
@@ -34,10 +37,20 @@ What each setting means is on [install and connect](installation.md).
 | `sftp_key_path` | — | a private key file; without it `session start` asks the SFTP password |
 | `sftp_host_key` | — | the server's key fingerprint, `SHA256:…`, that you checked; nothing connects until it is set |
 
+## Transcription
+
+These two are read from the profile's own part of the file only. A value in `defaults` does not send any profile's
+recordings away. See [cloud transcription](installation.md#cloud-transcription).
+
+| Setting | Default | What it is |
+| --- | --- | --- |
+| `transcribe_engine` | `local` | `local`, on this computer, or `openai`, which sends the speech to OpenAI |
+| `transcribe_model` | `gpt-transcribe` | the service's speech model, for `transcribe_engine openai` |
+
 ## Permissions
 
 `permissions` decides what a command may do for this profile: `allow`, `ask`, `readonly` or `deny`, per command path
-(`meetings.sync`, `meetings.transcribe`). Over MCP there is no one to ask, so `ask` lets the command run.
+(`meetings.sync`, `meetings.transcribe`, `tags.add`). Over MCP there is no one to ask, so `ask` lets the command run.
 `PBX_READ_ONLY=1` refuses every command that changes your sign-in or settings.
 
 ```sh

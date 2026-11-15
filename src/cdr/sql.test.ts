@@ -1,65 +1,39 @@
-import { beforeEach, expect, it, vi } from "vitest"
+import type { EventSink } from "@wirecat/cli-core/cli"
+import type { SqlDriver } from "@wirecat/cli-core/sql"
+import { beforeEach, expect, it } from "vitest"
 import { type SqlSource, sqlCdr } from "./sql.js"
 
 const PAGE = 5_000
 const SINCE = { wall: "2026-10-31 06:30:00", utc: "2026-10-31T03:30:00.000Z" }
 
-const db = vi.hoisted(() => ({
-  statements: [] as { sql: string; params?: unknown[] }[],
-  options: {} as Record<string, unknown>,
+const db = {
+  statements: [] as { sql: string; params?: readonly unknown[] }[],
   columns: ["calldate", "src", "uniqueid"],
   zoned: "",
-  pages: [] as unknown[][],
+  pages: [] as Record<string, unknown>[][],
   fail: {} as Partial<Record<"connect" | "columns" | "page", unknown>>,
   closed: 0,
-}))
-
-const answer = async (sql: string, params?: unknown[]) => {
-  db.statements.push({ sql, ...(params ? { params } : {}) })
-  if (sql.endsWith("LIMIT 0")) {
-    if (db.fail.columns) throw db.fail.columns
-    return db.columns.map((name) => ({ name, dataTypeID: name === db.zoned ? 1184 : 1114 }))
-  }
-  if (!sql.startsWith("SELECT")) return []
-  if (db.fail.page) throw db.fail.page
-  return db.pages.shift() ?? []
 }
 
-vi.mock("mysql2/promise", () => ({
-  createConnection: async (options: Record<string, unknown>) => {
-    db.options = options
-    if (db.fail.connect) throw db.fail.connect
-    return {
-      query: async (query: string | { sql: string }, params?: unknown[]) => {
-        const sql = typeof query === "string" ? query : query.sql
-        const rows = await answer(sql, params)
-        return sql.endsWith("LIMIT 0") ? [[], rows] : [rows]
-      },
-      end: async () => {
-        db.closed++
-      },
-    }
-  },
-}))
-
-vi.mock("pg", () => {
-  class Client {
-    constructor(options: Record<string, unknown>) {
-      db.options = options
-    }
-    async connect() {
-      if (db.fail.connect) throw db.fail.connect
-    }
-    async query(sql: string, params?: unknown[]) {
-      const rows = await answer(sql, params)
-      return sql.endsWith("LIMIT 0") ? { fields: rows } : { rows }
-    }
-    async end() {
+/** cli-core's driver seam, in place of mysql2 and pg: the statements cli-core sends for the CDR's schema. */
+const driver = async (): Promise<SqlDriver> => {
+  if (db.fail.connect) throw db.fail.connect
+  return {
+    columns: async (sql) => {
+      db.statements.push({ sql })
+      if (db.fail.columns) throw db.fail.columns
+      return db.columns.map((name) => ({ name, zoned: name === db.zoned }))
+    },
+    query: async (sql, params) => {
+      db.statements.push({ sql, params })
+      if (db.fail.page) throw db.fail.page
+      return db.pages.shift() ?? []
+    },
+    close: async () => {
       db.closed++
-    }
+    },
   }
-  return { default: { Client, types: { getTypeParser: () => (value: string) => `parsed ${value}` } } }
-})
+}
 
 const source = (kind: SqlSource["kind"], overrides: Partial<SqlSource> = {}): SqlSource => ({
   kind,
@@ -76,7 +50,6 @@ const rows = (count: number) => Array.from({ length: count }, (_, index) => ({ u
 
 beforeEach(() => {
   db.statements = []
-  db.options = {}
   db.columns = ["calldate", "src", "uniqueid"]
   db.zoned = ""
   db.pages = []
@@ -84,27 +57,28 @@ beforeEach(() => {
   db.closed = 0
 })
 
-it("mysql opens a read-only session and reads every page from the cursor, by offset when only the time orders", async () => {
+it("reads every page from the cursor, by offset when only the time orders, each page a sql event", async () => {
   db.pages = [rows(PAGE), rows(3)]
-  const cdr = await sqlCdr(source("mysql", { tls: true }), "pw")
+  const events: Parameters<EventSink>[0][] = []
+  const cdr = await sqlCdr(source("mysql"), "pw", { driver, events: (event) => events.push(event) })
   expect(await cdr.rows(SINCE)).toHaveLength(PAGE + 3)
   await cdr.close()
-  expect(db.options).toMatchObject({ port: 3306, dateStrings: true, ssl: { rejectUnauthorized: true } })
   expect(db.statements.map(({ sql }) => sql)).toEqual([
-    "SET SESSION TRANSACTION READ ONLY",
     "SELECT * FROM `asteriskcdrdb`.`cdr` LIMIT 0",
     `SELECT * FROM \`asteriskcdrdb\`.\`cdr\` WHERE \`calldate\` >= ? ORDER BY \`calldate\` LIMIT ${PAGE} OFFSET 0`,
     `SELECT * FROM \`asteriskcdrdb\`.\`cdr\` WHERE \`calldate\` >= ? ORDER BY \`calldate\` LIMIT ${PAGE} OFFSET ${PAGE}`,
   ])
-  expect(db.statements[2]?.params).toEqual(["2026-10-31 06:30:00"])
+  expect(db.statements[1]?.params).toEqual(["2026-10-31 06:30:00"])
   expect(db.closed).toBe(1)
+  const operations = events.map((event) => (event as { operation?: string }).operation).filter(Boolean)
+  expect(new Set(operations)).toEqual(new Set(["sql.connect", "sql.columns", "sql.rows"]))
 })
 
 it("with uniqueid and sequence, a page starts after the last row seen, so a transfer's legs are never skipped", async () => {
   db.columns = ["calldate", "uniqueid", "sequence"]
   const full = rows(PAGE).map((row, index) => ({ ...row, calldate: "2026-10-31 12:00:00", sequence: String(index) }))
   db.pages = [full, rows(1)]
-  const cdr = await sqlCdr(source("postgres", { table: "cdr" }), "pw")
+  const cdr = await sqlCdr(source("postgres", { table: "cdr" }), "pw", { driver })
   expect(await cdr.rows(SINCE)).toHaveLength(PAGE + 1)
   const last = db.statements.at(-1)
   expect(last?.sql).toBe(
@@ -116,22 +90,18 @@ it("with uniqueid and sequence, a page starts after the last row seen, so a tran
 it("a timestamp with time zone is asked in UTC, since the server reads a bare time in its own zone", async () => {
   db.zoned = "calldate"
   db.pages = [rows(1)]
-  await (await sqlCdr(source("postgres", { table: "cdr" }), "pw")).rows(SINCE)
+  await (await sqlCdr(source("postgres", { table: "cdr" }), "pw", { driver })).rows(SINCE)
   expect(db.statements.at(-1)?.params).toEqual([SINCE.utc])
 })
 
-it("postgres asks for a read-only transaction and keeps a timestamp without zone as its wall time", async () => {
+it("a table that names its start `start` is read by it", async () => {
   db.columns = ["start", "src"]
   db.pages = [rows(1)]
-  const cdr = await sqlCdr(source("postgres", { table: "cdr" }), "pw")
+  const cdr = await sqlCdr(source("postgres", { table: "cdr" }), "pw", { driver })
   expect(await cdr.rows(SINCE)).toHaveLength(1)
-  expect(db.options).toMatchObject({ port: 5432, options: "-c default_transaction_read_only=on" })
   expect(db.statements.at(-1)?.sql).toBe(
     `SELECT * FROM "cdr" WHERE "start" >= $1 ORDER BY "start" LIMIT ${PAGE} OFFSET 0`,
   )
-  const parser = (db.options.types as { getTypeParser: (oid: number) => (value: string) => unknown }).getTypeParser
-  expect(parser(1114)("2026-10-31 09:30:00")).toBe("2026-10-31 09:30:00")
-  expect(parser(23)("1")).toBe("parsed 1")
 })
 
 it.each([
@@ -142,33 +112,46 @@ it.each([
   [{ code: "XX000" }, "provider_error", undefined],
 ])("a refused connection %j is %s, without the driver's text", async (error, code, reason) => {
   db.fail.connect = Object.assign(new Error("Access denied for user 'reader'@'pbx.example.test'"), error)
-  const opened = sqlCdr(source("postgres"), "pw")
+  const opened = sqlCdr(source("postgres"), "pw", { driver })
   await expect(opened).rejects.toMatchObject({ code, ...(reason ? { details: { reason } } : {}) })
-  await expect(opened).rejects.not.toThrow(/reader|pbx\.example/)
+  await expect(opened).rejects.not.toThrow(/reader|Access denied/)
 })
 
 it("a missing table, a table without a time column and a denied SELECT say what to change", async () => {
   db.fail.columns = Object.assign(new Error("no such table"), { code: "ER_NO_SUCH_TABLE" })
-  await expect((await sqlCdr(source("mysql"), "pw")).rows(SINCE)).rejects.toMatchObject({
-    details: { reason: "db.no-table" },
-  })
+  const missing = (await sqlCdr(source("mysql"), "pw", { driver })).rows(SINCE)
+  await expect(missing).rejects.toMatchObject({ details: { reason: "db.no-table" } })
+  await expect(missing).rejects.toThrow("set db_table")
   db.fail = {}
   db.columns = ["src", "dst"]
-  await expect((await sqlCdr(source("mysql"), "pw")).rows(SINCE)).rejects.toMatchObject({
+  await expect((await sqlCdr(source("mysql"), "pw", { driver })).rows(SINCE)).rejects.toMatchObject({
     details: { reason: "cdr.no-time-column" },
   })
   db.columns = ["calldate"]
   db.fail.page = Object.assign(new Error("permission denied for table cdr"), { code: "42501" })
-  await expect((await sqlCdr(source("postgres"), "pw")).rows(SINCE)).rejects.toMatchObject({
-    code: "permission_error",
-    details: { reason: "db.no-select" },
-  })
+  const denied = (await sqlCdr(source("postgres"), "pw", { driver })).rows(SINCE)
+  await expect(denied).rejects.toMatchObject({ code: "permission_error", details: { reason: "db.no-select" } })
+  await expect(denied).rejects.toThrow("grant it SELECT")
 })
 
 it("a stopped run closes the connection and reads no further page", async () => {
   const stop = new AbortController()
-  const cdr = await sqlCdr(source("mysql"), "pw", { signal: stop.signal })
+  const cdr = await sqlCdr(source("mysql"), "pw", { driver, signal: stop.signal })
   stop.abort()
   await expect(cdr.rows(SINCE)).rejects.toMatchObject({ code: "cancelled" })
   expect(db.closed).toBe(1)
+})
+
+it("a tunnel's stream is handed to the driver in place of a connection of its own", async () => {
+  const stream = { tunnel: true } as never
+  let given: unknown
+  const cdr = await sqlCdr(source("mysql"), "pw", {
+    socket: async () => stream,
+    driver: async (_options, socket) => {
+      given = socket
+      return driver()
+    },
+  })
+  await cdr.close()
+  expect(given).toBe(stream)
 })

@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto"
 import type {
   MeetingDetails,
   MeetingMediaDescriptor,
@@ -74,7 +73,7 @@ export const speakersOf = (details: MeetingDetails, sides: readonly RecordingSid
 
 /** One recorded call for cli-core's `transcribeMeeting`; the content hash keeps an unchanged file from a second run. */
 export const callTranscriptionSource = (
-  bytes: Uint8Array,
+  { hash, size }: { hash: string; size: number },
   channels: readonly Pcm[],
   {
     format,
@@ -84,11 +83,10 @@ export const callTranscriptionSource = (
   }: { format: string; recognize: Recognize; recognition: Recognition; speakers?: readonly string[] | null },
 ): MeetingTranscriptionSource => {
   const durationMs = durationMsOf(channels)
-  const hash = createHash("sha256").update(bytes).digest("hex")
   const media: MeetingMediaDescriptor = {
     id: hash.slice(0, 32),
     contentHash: hash,
-    size: bytes.byteLength,
+    size,
     durationMs,
     format,
     sampleRate: channels[0]?.rate ?? 8000,
