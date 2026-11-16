@@ -36,10 +36,17 @@ const SOURCE_ENTRIES = {
   sftp_key_path: v.optional(text("the path of a private key")),
   sftp_host_key: v.optional(text("the server's SHA256 host key fingerprint")),
   cdr_timezone: v.optional(text("an IANA time zone, such as Europe/Moscow")),
+  // A list is what `config set phone_region es,ru` and the setup flow's countries input write; text is how it was kept.
   phone_region: v.optional(
-    v.pipe(
-      text("two-letter country codes"),
-      v.regex(/^\s*[a-z]{2}(\s*,\s*[a-z]{2})*\s*$/i, "has to be a country code, or several: es,ru"),
+    v.union(
+      [
+        v.pipe(
+          text("two-letter country codes"),
+          v.regex(/^\s*[a-z]{2}(\s*,\s*[a-z]{2})*\s*$/i, "has to be a country code, or several: es,ru"),
+        ),
+        v.pipe(v.array(v.pipe(v.string(), v.regex(/^[a-z]{2}$/i))), v.minLength(1)),
+      ],
+      plain("has to be a country code, or several: es,ru"),
     ),
   ),
   extension_pattern: v.optional(text("a regular expression for internal extensions")),

@@ -570,6 +570,53 @@
     },
     {
       "path": [
+        "setup"
+      ],
+      "summary": "connect this profile, question by question",
+      "effects": {
+        "remote": "read",
+        "local": "write"
+      },
+      "permission": "setup"
+    },
+    {
+      "path": [
+        "setup",
+        "show"
+      ],
+      "summary": "print the connection flow as JSON, for WireCat Desktop",
+      "effects": {
+        "remote": "none",
+        "local": "read"
+      },
+      "permission": "setup.show"
+    },
+    {
+      "path": [
+        "setup",
+        "apply"
+      ],
+      "summary": "check the answers on stdin against the flow, and save them",
+      "effects": {
+        "remote": "read",
+        "local": "write"
+      },
+      "permission": "setup.apply"
+    },
+    {
+      "path": [
+        "setup",
+        "run"
+      ],
+      "summary": "run one step of the flow, as WireCat Desktop does",
+      "effects": {
+        "remote": "read",
+        "local": "write"
+      },
+      "permission": "setup.run"
+    },
+    {
+      "path": [
         "runs",
         "list"
       ],
@@ -724,8 +771,7 @@
     "search": null,
     "setup": [
       "{profile}",
-      "session",
-      "start"
+      "setup"
     ],
     "signIn": {
       "gives": "Lets your agent find your company's phone calls and read what was said in them.",

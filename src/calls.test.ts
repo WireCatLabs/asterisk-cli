@@ -142,7 +142,7 @@ it("says a profile with no source settings of its own is not connected, and list
   expect(synced.json()).toMatchObject({ error: { code: "configuration_error", reason: "source.not-configured" } })
   expect(synced.err).toContain("profile fresh is not connected to an Asterisk yet")
   expect(synced.err).toContain("https://wirecat.dev/en/docs/pbx/installation")
-  expect(synced.err).toContain("pbx fresh session start")
+  expect(synced.err).toContain("pbx fresh setup")
   expect(synced.err).toMatch(/Profiles on this computer: [^"]*office/)
   expect(synced.err).not.toContain("cdr_csv_path")
 })

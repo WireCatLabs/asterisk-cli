@@ -28,7 +28,7 @@ import {
 } from "@wirecat/cli-core/cli"
 import { Command } from "commander"
 import { configuration } from "../config.js"
-import { contextOf, openSource, type Passwords, readyToRead, refuseOffline, refuseUnpinnedHost } from "../context.js"
+import { checkSource, contextOf, type Passwords, readyToRead, refuseOffline, refuseUnpinnedHost } from "../context.js"
 import { IDENTITY } from "../identity.js"
 import { type SecretKind, secretKindsOf, slotOf, sourceOf } from "../source.js"
 
@@ -105,20 +105,6 @@ const askPasswords = async (command: Command, kinds: readonly SecretKind[]): Pro
   return Object.fromEntries(kinds.map((kind, index) => [kind, answers[index]]))
 }
 
-/** Reads the newest hour of call records: proof that the settings and the passwords reach the CDR, changing nothing. */
-const check = async (command: Command, passwords?: Passwords) => {
-  const { run } = contextOf(command)
-  return run(async () => {
-    const opened = await openSource(command, passwords)
-    try {
-      const { rows } = await opened.reader.rows(Date.now() - 60 * 60 * 1000)
-      return { cdr: opened.source.cdr.kind, calls_last_hour: rows.length }
-    } finally {
-      await opened.close()
-    }
-  })
-}
-
 const answer = (command: Command, item: unknown) => renderAnswer(command, outputFor(command), itemOf(item))
 
 const storageOf = (raw: string): TokenStorage => {
@@ -157,7 +143,7 @@ const startCommand = () =>
       const kinds = secretKindsOf(source)
       // A secret is never an argument: it would land in shell history and in the run record (WC-SECR-5).
       const passwords = await askPasswords(this, kinds)
-      const checked = await check(this, passwords)
+      const checked = await checkSource(this, settings, passwords)
       let storedIn: string | null = null
       for (const kind of kinds) {
         const slot = slotOf(source, kind)
@@ -203,7 +189,7 @@ const statusCommand = () =>
         password_from: saved?.source ?? null,
       }
       if (!args.check || status.state === "missing") return answer(this, { ...status, verified: false })
-      answer(this, { ...status, verified: true, ...(await check(this)) })
+      answer(this, { ...status, verified: true, ...(await checkSource(this, settings)) })
     })
 
 const endCommand = () =>

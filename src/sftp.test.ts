@@ -1,67 +1,10 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
 import { posix } from "node:path"
 import { CliError, memoryKeyring } from "@wirecat/cli-base"
-import type { SftpClient, SftpEntry, SftpOptions } from "@wirecat/cli-core/sftp"
+import type { SftpClient, SftpOptions } from "@wirecat/cli-core/sftp"
 import { beforeEach, expect, it } from "vitest"
+import { EXAMPLES, fakeServer, HOUR_AGO, hostKey, IN_CALL, KEY, SFTP_PASSWORD as PASSWORD } from "./testing/fakes.js"
 import { configure, fakeSpeech, freshFolders, runCli } from "./testing/harness.js"
-
-const PASSWORD = "test-sftp-password-91c2"
-const KEY = "SHA256:dGVzdC1ob3N0LWtleS1maW5nZXJwcmludC0wMDAwMDA"
-const EXAMPLES = new URL("../examples/", import.meta.url)
-const IN_CALL = "2026/10/31/in-74950000000-79000000001-20261031-120000-1761901200.11.wav"
-const HOUR_AGO = new Date(Date.now() - 3_600_000).toISOString()
-
-/** The PBX's files as an SFTP server shows them; it refuses any password but the test's and any other host key. */
-const fakeServer = () => {
-  const files = new Map<string, Uint8Array>([
-    ["/var/log/asterisk/cdr-csv/Master.csv", readFileSync(new URL("Master.csv", EXAMPLES))],
-    [`/var/spool/asterisk/monitor/${IN_CALL}`, readFileSync(new URL(`monitor/${IN_CALL}`, EXAMPLES))],
-  ])
-  const opened: SftpOptions[] = []
-  const streamed: string[] = []
-  const entry = (path: string, kind: SftpEntry["kind"], size = 0): SftpEntry => ({
-    name: posix.basename(path),
-    kind,
-    size,
-    modifiedAt: HOUR_AGO,
-  })
-  const notFound = () => new CliError("not_found", "no such file", { reason: "file.not-found" })
-  const open = async (options: SftpOptions): Promise<SftpClient> => {
-    opened.push(options)
-    if (options.hostKey !== KEY)
-      throw new CliError("authentication_error", "host key", { reason: "sftp.host-key-mismatch" })
-    if (!("password" in options.auth) || options.auth.password !== PASSWORD)
-      throw new CliError("authentication_error", "refused", { reason: "auth.failed" })
-    return {
-      stat: async (path) => {
-        const bytes = files.get(path)
-        if (bytes) return entry(path, "file", bytes.length)
-        if ([...files.keys()].some((one) => one.startsWith(`${path}/`))) return entry(path, "directory")
-        throw notFound()
-      },
-      list: async (folder) => {
-        const inside = [...files.entries()].filter(([path]) => posix.dirname(path) === folder)
-        if (!inside.length && ![...files.keys()].some((one) => one.startsWith(`${folder}/`))) throw notFound()
-        return inside.map(([path, bytes]) => entry(path, "file", bytes.length))
-      },
-      readFile: async (path) => {
-        const bytes = files.get(path)
-        if (!bytes) throw notFound()
-        return bytes
-      },
-      readStream: async function* (path) {
-        const bytes = files.get(path)
-        if (!bytes) throw notFound()
-        streamed.push(path)
-        for (let at = 0; at < bytes.length; at += 4096) yield bytes.subarray(at, at + 4096)
-      },
-      close: async () => {},
-    }
-  }
-  return { open, opened, streamed }
-}
-
-const hostKey = async () => ({ algorithm: "ssh-ed25519", fingerprint: KEY })
 
 beforeEach(async () => {
   freshFolders()

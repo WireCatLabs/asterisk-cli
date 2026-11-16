@@ -13,6 +13,7 @@ import {
   type RunOptions,
   run as runShared,
   runsCommand,
+  setupCommand,
   skillCommand,
   upgradeCommand,
 } from "@wirecat/cli-core/cli"
@@ -24,6 +25,7 @@ import { sessionCommand } from "./commands/session.js"
 import { configuration } from "./config.js"
 import { readyToRead } from "./context.js"
 import { IDENTITY, PACKAGE, SKILL } from "./identity.js"
+import { setup } from "./setup.js"
 
 const update = appUpdate({
   packageName: PACKAGE,
@@ -63,7 +65,7 @@ const FIRST_SCREEN: FirstScreen = {
     { command: 'tags add complaint --matching "refund"', does: "mark every call the search finds" },
     { command: "mcp serve", does: "the calls for an agent, within the profile's permissions" },
   ],
-  start: `${IDENTITY.command} office config set cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv`,
+  start: `${IDENTITY.command} office setup`,
 }
 
 export const definition = (): ProgramDefinition => {
@@ -90,6 +92,7 @@ export const definition = (): ProgramDefinition => {
         install: (argv) => update.runUpdate(argv, {}),
       })),
       configCommand(IDENTITY, configuration),
+      setupCommand(setup),
       runsCommand(IDENTITY),
     ],
   }

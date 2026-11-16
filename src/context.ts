@@ -5,6 +5,7 @@ import {
   environmentOf,
   type GlobalFlags,
   ProfileTokenStore,
+  type Settings,
 } from "@wirecat/cli-core/cli"
 import type { MeetingMeaningApi } from "@wirecat/cli-core/services"
 import type { SshTunnel, SshTunnelOptions } from "@wirecat/cli-core/sftp"
@@ -77,7 +78,7 @@ const storedPasswords = (source: SourceConfig, secrets: ProfileTokenStore, profi
       if (!kept)
         throw new CliError(
           "authentication_error",
-          `this profile has no ${ASKED_FOR[kind]} password yet; run ${IDENTITY.command} ${profile} session start`,
+          `this profile has no ${ASKED_FOR[kind]} password yet; run ${IDENTITY.command} ${profile} setup`,
           { reason: "profile.not-signed-in" },
         )
       return [kind, kept]
@@ -170,10 +171,12 @@ const tunnelFor = async (
 
 /**
  * The profile's Asterisk, opened for one command: its files and its CDR. A database, and the SSH server in front of
- * it, are reached only here, with the passwords `session start` kept, or `given` while they are being checked.
+ * it, are reached only here: with the passwords `session start` kept, or, while a check runs, with the `given`
+ * passwords and the `checking` settings, which are not saved yet.
  */
-export const openSource = async (command: Command, given?: Passwords): Promise<OpenedSource> => {
-  const { settings, environment, secrets, profile } = contextOf(command)
+export const openSource = async (command: Command, given?: Passwords, checking?: Settings): Promise<OpenedSource> => {
+  const { environment, secrets, profile, ...context } = contextOf(command)
+  const settings = checking ?? context.settings
   const source = sourceOf(settings)
   const passwords = given ?? storedPasswords(source, secrets, profile)
   if (source.cdr.kind !== "csv") refuseOffline(settings.offline)
@@ -220,4 +223,24 @@ export const readyToRead = (profile: string, env: NodeJS.ProcessEnv, keyring?: K
   } catch {
     return false
   }
+}
+
+/**
+ * Reads the newest hour of call records: proof that the settings and the passwords reach the CDR, changing nothing.
+ * `session start` and the setup flow both check with it, so the two can never disagree about a working profile.
+ */
+export const checkSource = async (command: Command, settings: Settings, passwords?: Passwords) => {
+  const { run, environment, profile } = contextOf(command)
+  const source = sourceOf(settings)
+  if (source.files.kind === "sftp") refuseOffline(settings.offline)
+  await refuseUnpinnedHost(source, environment, profile)
+  return run(async () => {
+    const opened = await openSource(command, passwords, settings)
+    try {
+      const { rows } = await opened.reader.rows(Date.now() - 60 * 60 * 1000)
+      return { cdr: opened.source.cdr.kind, calls_last_hour: rows.length }
+    } finally {
+      await opened.close()
+    }
+  })
 }

@@ -92,5 +92,5 @@ it("skill status and skill show --for read what skill install wrote", async () =
 it("help prints the first screen", async () => {
   const { code, out } = await ran(["help"])
   expect(code).toBe(0)
-  expect(out).toContain("asterisk")
+  expect(out).toContain("pbx office setup")
 })

@@ -1,71 +1,10 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { PassThrough } from "node:stream"
-import { CliError, memoryKeyring } from "@wirecat/cli-base"
-import type { SshTunnel, SshTunnelOptions } from "@wirecat/cli-core/sftp"
+import { memoryKeyring } from "@wirecat/cli-base"
 import { beforeEach, expect, it, vi } from "vitest"
-import type { RawRow } from "./cdr/record.js"
-import type { SqlCdr, SqlCdrOptions, SqlSource } from "./cdr/sql.js"
+import { fakeTable, fakeTunnel, PASSWORD, ROWS, SSH_KEY, SSH_PASSWORD } from "./testing/fakes.js"
 import { asteriskFolder, configure, fakeSpeech, freshFolders, runCli } from "./testing/harness.js"
-
-const PASSWORD = "test-db-password-7f3a"
-
-const ROWS: RawRow[] = [
-  {
-    calldate: "2026-10-31 12:00:00",
-    clid: '"Ivan Testov" <79000000001>',
-    src: "79000000001",
-    dst: "74950000000",
-    dcontext: "from-trunk",
-    channel: "PJSIP/trunk-00000001",
-    dstchannel: "PJSIP/101-00000002",
-    lastapp: "Dial",
-    duration: 185,
-    billsec: 180,
-    disposition: "ANSWERED",
-    uniqueid: "1761901200.11",
-    linkedid: "1761901200.11",
-    sequence: 11,
-    recordingfile: "in-74950000000-79000000001-20261031-120000-1761901200.11.wav",
-  },
-  {
-    calldate: "2026-10-31 13:00:00",
-    clid: '"Anna Managerova" <102>',
-    src: "102",
-    dst: "89000000002",
-    dcontext: "from-internal",
-    channel: "PJSIP/102-00000003",
-    dstchannel: "PJSIP/trunk-00000004",
-    duration: 130,
-    billsec: 120,
-    disposition: "ANSWERED",
-    uniqueid: "1761904800.21",
-    linkedid: "1761904800.21",
-    sequence: 21,
-  },
-]
-
-/** A CDR table that refuses any password but the test's, as the server does, and records the bounds it was asked. */
-const fakeTable = () => {
-  const asked: string[] = []
-  const options: SqlCdrOptions[] = []
-  const open = async (source: SqlSource, password: string, given: SqlCdrOptions): Promise<SqlCdr> => {
-    options.push(given)
-    await given.socket?.()
-    if (password !== PASSWORD)
-      throw new CliError("authentication_error", `the ${source.kind} server refused the user or password`, {
-        reason: "db.refused",
-      })
-    return {
-      rows: async (since) => {
-        asked.push(since.wall)
-        return ROWS.filter((row) => String(row.calldate) >= since.wall)
-      },
-      close: async () => {},
-    }
-  }
-  return { open, asked, options }
-}
 
 beforeEach(async () => {
   freshFolders()
@@ -182,32 +121,6 @@ it("meetings transcribe reads only the recordings: no password and no database, 
   expect(done.json().item).toMatchObject({ transcribed: 1 })
   expect(table.asked).toHaveLength(asked)
 })
-
-const SSH_PASSWORD = "test-ssh-password-4e1b"
-const SSH_KEY = "SHA256:c3NoLWhvc3Qta2V5LWZpbmdlcnByaW50LTAwMDAwMDAw"
-
-/** An SSH server that forwards only to the database on its own loopback, for the test's password and key. */
-const fakeTunnel = () => {
-  const opened: SshTunnelOptions[] = []
-  const forwarded: string[] = []
-  let closed = 0
-  const open = async (options: SshTunnelOptions): Promise<SshTunnel> => {
-    opened.push(options)
-    if (options.hostKey !== SSH_KEY) throw new CliError("authentication_error", "host key", { reason: "ssh.host-key" })
-    if (!("password" in options.auth) || options.auth.password !== SSH_PASSWORD)
-      throw new CliError("authentication_error", "refused", { reason: "auth.failed" })
-    return {
-      connect: async (host, port) => {
-        forwarded.push(`${host}:${port}`)
-        return new PassThrough()
-      },
-      close: async () => {
-        closed++
-      },
-    }
-  }
-  return { open, opened, forwarded, closed: () => closed }
-}
 
 it("a database behind the PBX's SSH: the key is pinned first, then both passwords are asked, kept in one entry", async () => {
   await configure({ db_host: "127.0.0.1", db_ssh_host: "pbx.example.test", db_ssh_user: "wirecat" })

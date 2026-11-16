@@ -68,6 +68,13 @@ Owner, 2026-11-12.
   Master.csv is the token too, so a profile signed in before a profile could keep two still reads. Any other password
   is a named secret beside the token (`sftp`, `ssh`, cli-core's `writeSecret`). `session start` asks them in a fixed
   order, the database's, the SSH user's, the SFTP user's; piped, one per line in that order, since a pipe is read once.
+- **The setup flow** (`src/setup.ts`, cli-core's `defineSetup`, format v1) is what WireCat Desktop draws and
+  `pbx <profile> setup` asks. Its secrets keep the slots above, so a profile made by `session start` and one made by
+  the flow read the same: the database input is `secret: "token"`, the SSH tunnel's is `ssh`, and the SFTP step has
+  two inputs, `token` on Master.csv and `sftp` beside a database, shown by `cdr_source`. Its check is `checkSource`,
+  the same as `session start`'s, on the answers laid over the saved settings. A password left empty reuses the kept
+  one only while the settings it opens are unchanged (`OWNED_BY`): a changed host, port, user or source asks again.
+  `phone_region` takes the countries input's list as well as the older comma-separated text.
 - **The SSH tunnel** is cli-core's `openSshTunnel`, opened per command and closed with the reader, its key pinned in
   `db_ssh_host_key` as SFTP's is. `db_host` is the database as the SSH server sees it.
 - **The SQL reader** is cli-core's `openSqlReader` (`@wirecat/cli-core/sql`); `src/cdr/sql.ts` keeps only the CDR

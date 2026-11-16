@@ -11,8 +11,8 @@ call from one number, or see a caller's calls next to their chats, mail and CRM 
 local WireCat store, and Memo and the search of every WireCat tool find it there with the rest of your data.
 
 You connect `pbx` once per phone system. It needs read access to the call log, as a file or as a database user that
-may only read, and to the recordings folder if you want the text of the calls. WireCat Desktop does this in a form;
-from a terminal it takes a few commands.
+may only read, and to the recordings folder if you want the text of the calls. WireCat Desktop and
+`pbx office setup` in a terminal ask the same questions; a script sets each setting with `config set`.
 
 **On this page:**
 
@@ -87,20 +87,28 @@ settings.
 1. On the **Tools** page, choose **Install** beside Asterisk, then **Manage**.
 2. Under **Accounts**, add an account with a name for this phone system, such as `office`, and choose
    **Sign in here**.
-3. Under **Where are the call records?**, choose **Master.csv file**, **MySQL or MariaDB** or **PostgreSQL**:
-   - for **Master.csv file**, type its **Path of Master.csv** on this computer: a copy of the file, or a shared
-     folder that holds it;
-   - for a database, fill in **Database server**, **Database name**, **User** and the **Password of the database
-     user**. **Port (optional)** stays empty for the usual port. Turn on **Encrypted connection** when the database
-     is not on your own network.
-4. **Recordings folder (optional)** is the folder of the call recordings on this computer. Calls come in without it
-   too.
-5. Under **Countries of your phone lines**, choose the countries. The form explains: "Callers are matched to your
+3. Under **Where are the call records?**, choose **Master.csv file**, **MySQL or MariaDB** or **PostgreSQL**. Then
+   choose where `Master.csv` and the recordings are: **On this computer** or **On the PBX, over SFTP**.
+4. Over SFTP, fill in the **Server**, the **User** and the **Password of the SFTP user**. Leave the **Server key**
+   empty the first time. The check then stops and shows the server's key. Compare it with the key on the phone
+   system (see [files on the PBX over SFTP](#files-on-the-pbx-over-sftp)), paste it, and check again.
+5. For **Master.csv file**, give its **Path of Master.csv**: on this computer a copy of the file or a shared folder
+   that holds it, over SFTP its path on the phone system.
+6. For a database, fill in **Database server**, **Database name**, **User** and the **Password of the database
+   user**. **Port (optional)** stays empty for the usual port. Turn on **Encrypted connection** when the database
+   is not on your own network. When the database listens only on the phone system itself, as in FreePBX, open
+   **Through an SSH tunnel (optional)** and fill in the SSH server, its user and password. The **Database server**
+   is then `127.0.0.1`, the database as the phone system sees it.
+7. **Recordings folder (optional)** is the folder of the call recordings. Calls come in without it too. Under
+   **Countries of your phone lines**, choose the countries. The form explains: "Callers are matched to your
    contacts by phone number. Asterisk often writes a number without its country code, so pick the countries your
    phone lines serve. Calls from other countries arrive with their + code anyway."
-6. Start the sign-in. `pbx` reads the newest hour of calls to check the settings, and changes nothing. A database
-   password is kept only once that check works. The sync then brings in the calls of the last 30 days, with their
-   recordings.
+8. `pbx` reads the newest hour of calls to check the settings, and changes nothing. The settings and the passwords
+   are saved only when that check works. When it refuses a password or a setting, the form goes back to the step
+   that has it. The sync then brings in the calls of the last 30 days, with their recordings.
+
+These questions come from `pbx` itself, from version 0.7.0, so WireCat Desktop and the terminal always ask the same
+ones. An older WireCat Desktop shows its own shorter form, without SFTP and the SSH tunnel.
 
 The time zone of the records and the recordings' file names are on the account's **Settings** page. To turn
 recordings into text, see [transcribe](#transcribe).
@@ -108,8 +116,20 @@ recordings into text, see [transcribe](#transcribe).
 ## Connect from the terminal
 
 A profile is the name you give one phone system, such as `office`. It is the first word of every command that reads
-that system's calls. Choose where the records are, set the profile up, then run `session start`, which checks the
-settings by reading the newest calls.
+that system's calls. `pbx office setup` asks the questions of WireCat Desktop one by one, checks the answers by
+reading the newest calls, and saves the settings and the passwords only when that works:
+
+```sh
+pbx office setup
+```
+
+Answer a choice with its number, the countries as codes separated by commas (`ru, es`), and a password typed
+hidden. Press Enter to keep the value in brackets. Run it again to change a profile: a saved password is kept unless
+you ask to change it, but a changed server or user always needs its password typed again. When the check refuses a
+password or a setting, `setup` goes back to the step that has it.
+
+A script, or a setting `setup` does not ask, uses `config set` and `session start`, as below. `session start` checks
+the settings by reading the newest calls, then keeps the passwords.
 
 ### Master.csv
 
