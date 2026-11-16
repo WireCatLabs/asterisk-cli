@@ -190,7 +190,8 @@ it("meetings list and show answer from the store for a profile with no call sour
 
 it("extension_names names an extension that never placed a call, above its caller ID", async () => {
   await office()
-  await configure({ extension_names: "103=Vera Orlova,101=Oleg Owner" })
+  const set = await runCli(["office", "config", "set", "extension_names", "103=Vera Orlova, 101=Oleg Owner", "--json"])
+  expect(set.code, set.err).toBe(0)
   expect((await sync()).code).toBe(0)
   const transferred = (await listed()).find(({ title }) => title === "+79000000004 → 103") as Listed
   const names = JSON.parse(await details(transferred.id)).item.participants.map(({ name }: { name: string }) => name)

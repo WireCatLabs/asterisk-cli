@@ -225,7 +225,7 @@ it("a user that may not read asterisk.users syncs all the same, with one note th
     sql: table.open,
   })
   expect(synced.code, synced.err).toBe(0)
-  expect(synced.err.match(/could not be read/g)).toHaveLength(1)
-  expect(synced.err).toContain("grant SELECT (extension, name) on asterisk.users")
+  expect(synced.err.match(/asterisk\.users/g)).toHaveLength(2)
+  expect(synced.err).toContain("on FreePBX, grant the user SELECT (extension, name) on asterisk.users")
   expect(await employeeNames(keyring, table.open)).toEqual({ "101": null, "102": "Anna Managerova" })
 })

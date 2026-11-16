@@ -6,7 +6,7 @@
   [names of the extensions](../docs/installation.md#names-of-the-extensions).
 - **FreePBX's own names of the extensions.** On a FreePBX MySQL, `pbx` reads `asterisk.users` with the same database
   user, the two columns `extension` and `name` only, so the admin grants access to those columns and never to the
-  phones' passwords in the same table. A user without that grant syncs as before, with one note. The order:
+  phones' passwords in the same table. A user without that grant syncs as before; each sync prints one note. The order:
   `extension_names`, then FreePBX, then the caller ID.
 
 ### Fixed

@@ -319,7 +319,8 @@ An extension gets its name from three places. The first one that has a name wins
    GRANT SELECT (extension, name) ON asterisk.users TO 'wirecat_reader'@'10.0.0.%';
    ```
 
-   Without this grant the sync still works. It prints one note that says the names could not be read.
+   Without this grant the sync still works. Each sync prints one note that the names were not read from
+   `asterisk.users`. A plain Asterisk without FreePBX has no such table, and shows the same note.
 3. **The caller ID** of a call the extension placed, such as `"Oleg Petrov" <101>`. An employee who never calls out
    has no name from here.
 
