@@ -13,6 +13,8 @@ import type { Recording } from "./recordings.js"
 
 export const PROVIDER_NAME = "asterisk"
 
+const DIRECTIONS = { incoming: "in", outgoing: "out", internal: null } as const
+
 /**
  * Each sync reads again the six hours before its cursor: a CDR row is written when the call ends, with the call's start
  * time, so a call that was going on when the last sync read is found the next time. Six hours is our choice, longer
@@ -133,8 +135,11 @@ export const describe = (call: PhoneCall, names: ReadonlyMap<string, string>, re
 
 const meetingOf = (call: PhoneCall, regions: readonly string[], names: ReadonlyMap<string, string>): SourceMeeting => {
   const [first] = call.legs as [Leg, ...Leg[]]
+  const client = call.client ? (e164(call.client.number, regions) ?? call.client.number) : null
   return {
     series: null,
+    // The columns cli-core shows on every phone line's call: memo context and Desktop read them, not the metadata.
+    call: { direction: DIRECTIONS[call.direction ?? "internal"], clientPhone: client },
     description: describe(call, names, regions),
     occurrence: {
       id: call.id,
@@ -148,7 +153,7 @@ const meetingOf = (call: PhoneCall, regions: readonly string[], names: ReadonlyM
       outcome: call.outcome,
       disposition: first.row.disposition,
       dialed: call.dialed,
-      client: call.client ? (e164(call.client.number, regions) ?? call.client.number) : null,
+      client,
       placedBy: call.placedBy,
       answeredBy: call.answeredBy,
       rang: call.rang,

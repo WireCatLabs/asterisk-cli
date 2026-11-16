@@ -30,7 +30,8 @@ A ring group, a queue or a transfer writes several records for one call. You see
   ```
 
 - **The people:** the caller, the employee who placed the call and each one who answered. Employees are named from
-  the caller ID of the calls they make.
+  the caller ID of the calls they make. `memo context` and WireCat Desktop show each call's direction, the employee
+  and the caller's number.
 - **The same person everywhere:** a caller whose mobile number is in your CRM or your chats is the same person
   there, so their calls sit next to their deals, messages and mail. A landline is only proposed as a match, since
   many people share one office number.
