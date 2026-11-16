@@ -225,9 +225,14 @@ export const readyToRead = (profile: string, env: NodeJS.ProcessEnv, keyring?: K
   }
 }
 
+const NAMES_UNREAD =
+  "extension names were not read from asterisk.users, so they come from extension_names and the caller ID; on " +
+  "FreePBX, grant the user SELECT (extension, name) on asterisk.users"
+
 /**
  * Reads the newest hour of call records: proof that the settings and the passwords reach the CDR, changing nothing.
- * `session start` and the setup flow both check with it, so the two can never disagree about a working profile.
+ * `session start` and the setup flow both check with it, so the two can never disagree about a working profile. It is
+ * also where the person learns that FreePBX's names cannot be read: a sync, often run from cron, stays quiet.
  */
 export const checkSource = async (command: Command, settings: Settings, passwords?: Passwords) => {
   const { run, environment, profile } = contextOf(command)
@@ -238,6 +243,7 @@ export const checkSource = async (command: Command, settings: Settings, password
     const opened = await openSource(command, passwords, settings)
     try {
       const { rows } = await opened.reader.rows(Date.now() - 60 * 60 * 1000)
+      if ((await opened.reader.names()) === null) environment.streams?.diagnostic(NAMES_UNREAD)
       return { cdr: opened.source.cdr.kind, calls_last_hour: rows.length }
     } finally {
       await opened.close()

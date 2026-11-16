@@ -18,7 +18,6 @@ command line or MCP. See [install and connect](installation.md).
 
 - Find missed calls and calls in one direction with a filter on `meetings list`.
 - Read Asterisk's CEL log (channel event logging), where transfers and queues are exact.
-- Open a call in WireCat Desktop from the link `meetings show` prints, once Desktop supports links to calls.
 
 ## What it will not do
 

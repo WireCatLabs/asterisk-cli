@@ -390,11 +390,6 @@ export const meetingsMount = () => {
                   ),
                 )
               },
-              namesUnread: () =>
-                environmentOf(at).streams?.diagnostic(
-                  "extension names were not read from asterisk.users, so they come from extension_names and the " +
-                    "caller ID; on FreePBX, grant the user SELECT (extension, name) on asterisk.users",
-                ),
             },
           )
           return source

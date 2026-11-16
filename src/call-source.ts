@@ -40,8 +40,6 @@ export interface CallSourceOptions {
   ambiguous?: (count: number) => void
   /** The owner's names of extensions, above the PBX's and the caller ID's. */
   extensionNames?: ReadonlyMap<string, string>
-  /** Told once when the PBX's names could not be read. */
-  namesUnread?: () => void
   /** The names a call's extensions were saved with, by the call's id: what a resync falls back to. */
   storedNames?: (callId: string) => Promise<ReadonlyMap<string, string>>
 }
@@ -228,7 +226,6 @@ export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: 
   const seen = new Map<string, PhoneCall>()
   let names = new Map<string, string>()
   const namedCalls = new Map<string, ReadonlyMap<string, string>>()
-  let toldUnread = false
   /**
    * A resync may read a call without the call that named one of its extensions; the name it was saved with stays,
    * below every name this run found.
@@ -254,16 +251,13 @@ export const callSource = (rows: CdrRows, options: CallSourceOptions & { where: 
       const read = await rows.rows(Date.parse(since))
       if (read.skipped > 0) options.skipped?.(read.skipped)
       const calls = callsOf(read.rows, options.extension)
-      const directory = (await rows.names?.()) ?? null
-      if (directory === null && rows.names && !toldUnread) {
-        toldUnread = true
-        options.namesUnread?.()
-      }
+      // Unreadable names are told by the setup check and session start, never by a sync, which runs from cron too.
+      const directory = (await rows.names?.()) ?? []
       // Later wins: the caller ID, then the PBX's own names, then the owner's. Every sync lays them again, so a name
       // stays though the extension placed no call in the window read.
       names = new Map([
         ...extensionNames(calls.flatMap(({ legs }) => legs)),
-        ...(directory ?? []),
+        ...directory,
         ...(options.extensionNames ?? []),
       ])
       for (const call of calls) seen.set(call.id, call)

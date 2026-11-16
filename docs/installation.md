@@ -319,8 +319,10 @@ An extension gets its name from three places. The first one that has a name wins
    GRANT SELECT (extension, name) ON asterisk.users TO 'wirecat_reader'@'10.0.0.%';
    ```
 
-   Without this grant the sync still works. Each sync prints one note that the names were not read from
-   `asterisk.users`. A plain Asterisk without FreePBX has no such table, and shows the same note.
+   Without this grant the sync still works. The check in `pbx office setup`, `session start` and
+   `session status --check` prints one note that the names were not read from `asterisk.users`. A sync prints no
+   note, so a sync that cron runs stays quiet. A plain Asterisk without FreePBX has no such table, and the check shows
+   the same note. Give the grant later, and the next sync reads the names.
 3. **The caller ID** of a call the extension placed, such as `"Oleg Petrov" <101>`. An employee who never calls out
    has no name from here.
 

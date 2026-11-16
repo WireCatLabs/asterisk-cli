@@ -169,9 +169,9 @@ More: [settings](docs/configuration.md).
   These are the three places where Asterisk most often keeps its call history. `pbx` does not use CEL, AMI or ARI:
   CEL (channel event logging) is a log of each step inside a call, and AMI and ARI are interfaces that control calls
   while they happen. Call history does not need them.
-- **Playing a recording.** A call links its recording by the file's path, and you open the file in a player. No link
-  plays it in a browser. `meetings show` prints a link for WireCat Desktop (`wirecat://…`). It opens the call once
-  Desktop supports links to calls.
+- **Playing a recording.** WireCat Desktop plays a call's recording on the call's card when the recordings folder is
+  on this computer. `meetings show` prints a link (`wirecat://…`) that opens the call in Desktop. A recording read
+  over SFTP stays on the phone system, and the card cannot play it. No link plays a recording in a browser.
 - **Summaries.** `pbx` writes no summary of a call. Your agent reads the transcript and writes the summary.
 - **Who said what.** A stereo recording keeps its two channels apart: set `recordings_channels`, and each line names
   the caller or the employee. A mono recording, one mixed track, gives the text without names.
