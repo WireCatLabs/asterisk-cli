@@ -155,3 +155,28 @@ it("a tunnel's stream is handed to the driver in place of a connection of its ow
   await cdr.close()
   expect(given).toBe(stream)
 })
+
+it("reads FreePBX's extension names from asterisk.users, two columns only, and says when it may not", async () => {
+  db.pages = [
+    [
+      { extension: "101", name: "Oleg FreePBX" },
+      { extension: "102", name: "102" },
+      { extension: "", name: "x" },
+    ],
+  ]
+  const cdr = await sqlCdr(source("mysql"), "pw", { driver })
+  expect(await cdr.names?.()).toEqual(new Map([["101", "Oleg FreePBX"]]))
+  expect(db.statements.at(-1)?.sql).toBe("SELECT extension, name FROM asterisk.users")
+
+  db.fail.page = Object.assign(new Error("denied"), { code: "ER_COLUMNACCESS_DENIED_ERROR" })
+  expect(await cdr.names?.()).toBeNull()
+  db.fail.page = Object.assign(new Error("no table"), { code: "ER_NO_SUCH_TABLE" })
+  expect(await cdr.names?.()).toEqual(new Map())
+  db.fail.page = Object.assign(new Error("no database"), { code: "ER_BAD_DB_ERROR" })
+  expect(await cdr.names?.()).toEqual(new Map())
+
+  const postgres = await sqlCdr(source("postgres"), "pw", { driver })
+  const asked = db.statements.length
+  expect(await postgres.names?.()).toEqual(new Map())
+  expect(db.statements).toHaveLength(asked)
+})

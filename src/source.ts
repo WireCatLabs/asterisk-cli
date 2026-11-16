@@ -28,6 +28,8 @@ export interface SourceConfig {
   zone: string
   phoneRegions: string[]
   extension: RegExp
+  /** Set by the owner: names for extensions, above FreePBX's and the caller ID's. */
+  extensionNames: Map<string, string>
 }
 
 /** A password `session start` asks for: the database's, the SFTP user's, or the SSH tunnel user's. */
@@ -54,7 +56,7 @@ const need = (profile: string, values: Values, key: SourceSetting, example: stri
 }
 
 /** The settings that say where a profile's calls are; `transcribe_*` says only how they are turned into text. */
-const CONNECTION_SETTINGS = SOURCE_SETTINGS.filter((key) => !key.startsWith("transcribe_"))
+const CONNECTION_SETTINGS = SOURCE_SETTINGS.filter((key) => !key.startsWith("transcribe_") && key !== "extension_names")
 
 /**
  * A profile with no source settings of its own was never connected: naming one missing setting would read as if
@@ -104,6 +106,15 @@ const zoneOf = (zone: string | null): string => {
     })
   }
 }
+
+/** `101=Anna Smirnova,103=Vera Orlova` → extension → name. */
+const namesOf = (pairs: string | null): Map<string, string> =>
+  new Map(
+    (pairs ?? "").split(",").flatMap((pair) => {
+      const [extension = "", name = ""] = pair.split("=").map((part) => part.trim())
+      return extension && name ? [[extension, name] as const] : []
+    }),
+  )
 
 /** The profile's source from its settings, or a configuration error that names the setting to fill. */
 export const sourceOf = (settings: Settings): SourceConfig => {
@@ -178,6 +189,7 @@ export const sourceOf = (settings: Settings): SourceConfig => {
       ),
     ],
     extension: extensionOf(text(values, "extension_pattern") ?? "^\\d{2,5}$"),
+    extensionNames: namesOf(text(values, "extension_names")),
   }
 }
 

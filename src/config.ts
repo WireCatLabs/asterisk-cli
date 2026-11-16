@@ -50,6 +50,12 @@ const SOURCE_ENTRIES = {
     ),
   ),
   extension_pattern: v.optional(text("a regular expression for internal extensions")),
+  extension_names: v.optional(
+    v.pipe(
+      text("extension=name pairs"),
+      v.regex(/^[^=,]+=[^=,]+(,[^=,]+=[^=,]+)*$/, "has to be extension=name pairs: 101=Anna Smirnova,103=Vera Orlova"),
+    ),
+  ),
   // Read from the profile's own section only, so it has no shared default: sending a business's calls away is
   // decided for one profile at a time. `transcribe_with` is cli-core's messenger setting, which pbx cannot set.
   transcribe_engine: v.optional(v.picklist(["local", "openai"], plain("has to be local or openai"))),

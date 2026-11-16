@@ -28,6 +28,7 @@ const MYSQL = {
   db_user: "wirecat_reader",
   db: PASSWORD,
   phone_region: ["RU", "ES"],
+  extension_names: "103=Vera Orlova",
 }
 
 const configFile = () => join(process.env.PBX_CONFIG_DIR as string, "config.json")
@@ -117,6 +118,7 @@ it("a changed server or user needs its password typed again; an unchanged one ke
 it("the countries list is kept as a list, and a list, a comma-separated text or one code all read the same", async () => {
   expect((await setupCli(["apply"], MYSQL, { sql: fakeTable().open })).code).toBe(0)
   expect((await saved()).phone_region).toEqual(["RU", "ES"])
+  expect((await saved()).extension_names).toBe("103=Vera Orlova")
   const regions = () =>
     sourceOf(configuration.resolveSettings({ profile: "office" }, { env: process.env })).phoneRegions
   expect(regions()).toEqual(["ru", "es"])

@@ -76,6 +76,12 @@ writeFileSync(`${work}/mariadb.sql`, `CREATE TABLE cdr (${columns("datetime NOT 
 ${inserts}
 CREATE USER 'reader'@'%' IDENTIFIED BY ${value(password)};
 GRANT SELECT ON asteriskcdrdb.cdr TO 'reader'@'%';
+CREATE DATABASE asterisk;
+CREATE TABLE asterisk.users (extension varchar(20) NOT NULL, name varchar(50) NOT NULL, secret varchar(50) NOT NULL);
+INSERT INTO asterisk.users VALUES ('101', 'Oleg Livetestov', 'not-read'), ('103', 'Vera Livetestova', 'not-read');
+GRANT SELECT (extension, name) ON asterisk.users TO 'reader'@'%';
+CREATE USER 'cdronly'@'%' IDENTIFIED BY ${value(password)};
+GRANT SELECT ON asteriskcdrdb.cdr TO 'cdronly'@'%';
 `)
 writeFileSync(`${work}/postgres.sql`, `CREATE TABLE cdr (${columns("timestamp NOT NULL", "integer NOT NULL DEFAULT 0")}, recordingfile varchar(255) NOT NULL DEFAULT '');
 ${inserts}
@@ -128,6 +134,25 @@ port() { docker port "$1" "$2" | head -1 | sed 's/.*://'; }
 check live-csv "cdr_csv_path $root/examples/Master.csv" "recordings_path $root/examples/monitor"
 check live-mariadb "cdr_source mysql" "db_host 127.0.0.1" "db_port $(port "$run-mariadb" 3306)" \
   "db_name asteriskcdrdb" "db_user reader"
+# FreePBX's names, read with the column grant alone: 103 never places a call, so its name comes only from there.
+"${cli[@]}" live-mariadb stats calls show --since-time 2026-10-01 --json | node -e '
+  const { item } = JSON.parse(require("fs").readFileSync(0, "utf8"))
+  const names = Object.fromEntries(item.employees.map(({ extension, name }) => [extension, name]))
+  if (names["103"] !== "Vera Livetestova" || names["101"] !== "Oleg Livetestov") throw new Error(JSON.stringify(names))'
+# A plain Asterisk on MySQL: the user reads only the cdr table. The sync works, and the note about asterisk.users is
+# printed once; extension_names, set with commas through config set, still names the extensions.
+"${cli[@]}" live-cdronly config set extension_names "101=Oleg Set,103=Vera Set" >/dev/null
+check live-cdronly "cdr_source mysql" "db_host 127.0.0.1" "db_port $(port "$run-mariadb" 3306)" \
+  "db_name asteriskcdrdb" "db_user cdronly"
+printf '%s\n' "$password" | "${cli[@]}" live-cdronly session start --credential-storage file --json >/dev/null
+"${cli[@]}" live-cdronly meetings sync --since-time 2026-10-01T00:00:00Z --json 2>"$work/cdronly.err" >/dev/null
+[ "$(grep -c "on FreePBX, grant the user SELECT (extension, name) on asterisk.users" "$work/cdronly.err")" = 1 ] ||
+  { cat "$work/cdronly.err" >&2; exit 1; }
+"${cli[@]}" live-cdronly stats calls show --since-time 2026-10-01 --json | node -e '
+  const { item } = JSON.parse(require("fs").readFileSync(0, "utf8"))
+  const names = Object.fromEntries(item.employees.map(({ extension, name }) => [extension, name]))
+  if (names["103"] !== "Vera Set" || names["101"] !== "Oleg Set") throw new Error(JSON.stringify(names))'
+"${cli[@]}" live-cdronly session end --json >/dev/null
 check live-postgres "cdr_source postgres" "db_host 127.0.0.1" "db_port $(port "$run-postgres" 5432)" \
   "db_name asteriskcdrdb" "db_user reader"
 
@@ -243,4 +268,4 @@ marked=$("${cli[@]}" live-csv meetings list --limit 100 --json | node -e '
 
 "${cli[@]}" doctor --json >/dev/null
 
-echo "live check passed: describe format 2; Master.csv, MariaDB 11.4 and PostgreSQL 18 each imported 5 calls (6 CDR rows, a transfer joined) twice without doubles; SFTP (atmoz/sftp) shown its key, pinned, read Master.csv and linked recordings; MariaDB through an OpenSSH tunnel, its key shown and pinned, with three passwords in one profile; the setup flow refused an unpinned server, saved the same profile once pinned, and refused a changed server without its password; stats, a mark and a search over the stored calls; a wrong password refused"
+echo "live check passed: describe format 2; Master.csv, MariaDB 11.4 and PostgreSQL 18 each imported 5 calls (6 CDR rows, a transfer joined) twice without doubles; SFTP (atmoz/sftp) shown its key, pinned, read Master.csv and linked recordings; MariaDB through an OpenSSH tunnel, its key shown and pinned, with three passwords in one profile; the setup flow refused an unpinned server, saved the same profile once pinned, and refused a changed server without its password; FreePBX's asterisk.users named the extensions through a column grant, and a cdr-only user synced with one note; stats, a mark and a search over the stored calls; a wrong password refused"

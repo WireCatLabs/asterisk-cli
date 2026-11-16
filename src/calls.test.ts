@@ -1,4 +1,4 @@
-import { appendFileSync, readFileSync, utimesSync } from "node:fs"
+import { appendFileSync, readFileSync, utimesSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { wallClock } from "@wirecat/cli-core/cli"
 import { afterEach, beforeEach, expect, it } from "vitest"
@@ -186,4 +186,34 @@ it("meetings list and show answer from the store for a profile with no call sour
   expect(list.json()).toMatchObject({ items: [] })
   const shown = await runCli(["office", "meetings", "show", "7", "--json"])
   expect(JSON.parse(shown.err).error).toMatchObject({ code: "not_found" })
+})
+
+it("extension_names names an extension that never placed a call, above its caller ID", async () => {
+  await office()
+  const set = await runCli(["office", "config", "set", "extension_names", "103=Vera Orlova, 101=Oleg Owner", "--json"])
+  expect(set.code, set.err).toBe(0)
+  expect((await sync()).code).toBe(0)
+  const transferred = (await listed()).find(({ title }) => title === "+79000000004 → 103") as Listed
+  const names = JSON.parse(await details(transferred.id)).item.participants.map(({ name }: { name: string }) => name)
+  expect(names).toEqual(["Petr Testov", "Oleg Owner", "Vera Orlova"])
+  const refused = await runCli(["office", "config", "set", "extension_names", "101", "--json"])
+  expect(refused.json()).toMatchObject({ error: { code: "validation_error" } })
+})
+
+it("a resync that misses the call naming an extension keeps the name the call was saved with", async () => {
+  await office()
+  expect((await sync()).code).toBe(0)
+  const path = join(root, "Master.csv")
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000)
+  writeFileSync(
+    path,
+    `${MASTER.split("\n")
+      .filter((line) => line.includes("79000000004"))
+      .join("\n")}\n`,
+  )
+  utimesSync(path, hourAgo, hourAgo)
+  expect((await sync()).code).toBe(0)
+  const transferred = (await listed()).find(({ title }) => title === "+79000000004 → 103") as Listed
+  const names = JSON.parse(await details(transferred.id)).item.participants.map(({ name }: { name: string }) => name)
+  expect(names).toEqual(["Petr Testov", "Oleg Operatorov", null])
 })
