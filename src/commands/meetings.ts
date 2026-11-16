@@ -352,7 +352,10 @@ export const meetingsMount = () => {
           let config: ReturnType<typeof sourceOf> | undefined
           const configured = () => (config ??= sourceOf(settings))
           source = callSource(
-            { rows: async (since) => (await opening()).reader.rows(since) },
+            {
+              rows: async (since) => (await opening()).reader.rows(since),
+              names: async () => (await opening()).reader.names(),
+            },
             {
               profile: settings.profile as string,
               get phoneRegions() {
@@ -363,6 +366,9 @@ export const meetingsMount = () => {
               },
               get where() {
                 return configured().files.kind
+              },
+              get extensionNames() {
+                return configured().extensionNames
               },
               recording: async (row) => {
                 const { source: config, files } = await opening()
@@ -375,6 +381,19 @@ export const meetingsMount = () => {
               ambiguous: (count) =>
                 environmentOf(at).streams?.diagnostic(
                   `${count} callers' numbers fit more than one of phone_region's countries and were kept as written`,
+                ),
+              storedNames: async (callId) => {
+                const saved = await store.meetings.meetingByExternalId?.(accountId, callId)
+                return new Map(
+                  (saved?.participants ?? []).flatMap(({ externalId, displayName }) =>
+                    externalId && displayName ? [[externalId, displayName] as const] : [],
+                  ),
+                )
+              },
+              namesUnread: () =>
+                environmentOf(at).streams?.diagnostic(
+                  "FreePBX's extension names (asterisk.users) could not be read, so extensions are named by " +
+                    "extension_names and caller ID only; to read them, grant SELECT (extension, name) on asterisk.users",
                 ),
             },
           )

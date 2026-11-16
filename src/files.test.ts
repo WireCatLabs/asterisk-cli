@@ -67,6 +67,7 @@ it("reads a Master.csv larger than one read piece, with names and newlines insid
       zone: "UTC",
       phoneRegions: [],
       extension: /^\d{2,5}$/,
+      extensionNames: new Map(),
     },
     localFiles(),
     {},

@@ -8,6 +8,7 @@ import { type CdrRow, cdrRow, type RawRow, timeIn } from "./record.js"
 import type { SqlCdr, SqlCdrOptions, SqlSource } from "./sql.js"
 
 export interface CdrReader extends CdrRows {
+  names(): Promise<ReadonlyMap<string, string> | null>
   close(): Promise<void>
 }
 
@@ -94,6 +95,7 @@ export const cdrReader = async (
           throw error
         }
       },
+      names: async () => new Map(),
       close: async () => {},
     }
   if (!password)
@@ -109,6 +111,7 @@ export const cdrReader = async (
       const utc = new Date(since).toISOString()
       return normalized(await sql.rows({ wall: `${wallClock(zone).time(utc)}:00`, utc }), zone, since)
     },
+    names: async () => (sql.names ? sql.names() : new Map()),
     close: () => sql.close(),
   }
 }

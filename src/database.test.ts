@@ -187,3 +187,45 @@ it("a tunnel that signs in with a key file asks only the database password, and 
   const status = await runCli(["office", "session", "status", "--json"], { keyring })
   expect(status.json().item).toMatchObject({ state: "saved", passwords: ["db"] })
 })
+
+const employeeNames = async (keyring: ReturnType<typeof memoryKeyring>, open: ReturnType<typeof fakeTable>["open"]) => {
+  const stats = await runCli(["office", "stats", "calls", "show", "--since-time", "2026-10-01", "--json"], {
+    keyring,
+    sql: open,
+  })
+  const employees = (stats.json().item as { employees: { extension: string; name: string | null }[] }).employees
+  return Object.fromEntries(employees.map(({ extension, name }) => [extension, name]))
+}
+
+it("names extensions by extension_names, then FreePBX's asterisk.users, then the caller ID", async () => {
+  await configure({ extension_names: "101=Oleg Owner" })
+  const table = fakeTable(
+    new Map([
+      ["101", "Oleg FreePBX"],
+      ["102", "Anna FreePBX"],
+    ]),
+  )
+  const keyring = memoryKeyring()
+  await runCli(["office", "session", "start"], { keyring, sql: table.open, stdin: `${PASSWORD}\n` })
+  const synced = await runCli(["office", "meetings", "sync", "--since-time", "2026-10-31T00:00:00Z", "--json"], {
+    keyring,
+    sql: table.open,
+  })
+  expect(synced.code, synced.err).toBe(0)
+  expect(synced.err).not.toContain("asterisk.users")
+  expect(await employeeNames(keyring, table.open)).toEqual({ "101": "Oleg Owner", "102": "Anna FreePBX" })
+})
+
+it("a user that may not read asterisk.users syncs all the same, with one note that names the grant", async () => {
+  const table = fakeTable(null)
+  const keyring = memoryKeyring()
+  await runCli(["office", "session", "start"], { keyring, sql: table.open, stdin: `${PASSWORD}\n` })
+  const synced = await runCli(["office", "meetings", "sync", "--since-time", "2026-10-31T00:00:00Z", "--json"], {
+    keyring,
+    sql: table.open,
+  })
+  expect(synced.code, synced.err).toBe(0)
+  expect(synced.err.match(/could not be read/g)).toHaveLength(1)
+  expect(synced.err).toContain("grant SELECT (extension, name) on asterisk.users")
+  expect(await employeeNames(keyring, table.open)).toEqual({ "101": null, "102": "Anna Managerova" })
+})

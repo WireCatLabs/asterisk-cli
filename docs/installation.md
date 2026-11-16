@@ -102,7 +102,8 @@ settings.
 7. **Recordings folder (optional)** is the folder of the call recordings. Calls come in without it too. Under
    **Countries of your phone lines**, choose the countries. The form explains: "Callers are matched to your
    contacts by phone number. Asterisk often writes a number without its country code, so pick the countries your
-   phone lines serve. Calls from other countries arrive with their + code anyway."
+   phone lines serve. Calls from other countries arrive with their + code anyway." **Names of the extensions
+   (optional)** names employees who never place a call (see [names of the extensions](#names-of-the-extensions)).
 8. `pbx` reads the newest hour of calls to check the settings, and changes nothing. The settings and the passwords
    are saved only when that check works. When it refuses a password or a setting, the form goes back to the step
    that has it. The sync then brings in the calls of the last 30 days, with their recordings.
@@ -298,6 +299,32 @@ wrong password, a changed key or a missing file is not tried again.
   `Restricted`) or a dialplan name such as `s` is no person.
 - A ring group or queue reaches its members through `Local/<extension>@…` channels; the extension in that channel,
   not the group's number, is the member who answered.
+
+### Names of the extensions
+
+An extension gets its name from three places. The first one that has a name wins:
+
+1. **`extension_names`**, which you set. Use it for employees who only answer calls and never place one:
+
+   ```sh
+   pbx office config set extension_names "101=Anna Smirnova,103=Vera Orlova"
+   ```
+
+   `pbx office setup` and WireCat Desktop ask for it on the recordings step too.
+2. **FreePBX's own list of extensions**, the table `asterisk.users`, when the CDR is in FreePBX's MySQL. `pbx` reads
+   it with the same database user, and reads only two columns: `extension` and `name`. That table also keeps each
+   phone's password, so give the user only those two columns, never the whole table:
+
+   ```sql
+   GRANT SELECT (extension, name) ON asterisk.users TO 'wirecat_reader'@'10.0.0.%';
+   ```
+
+   Without this grant the sync still works. It prints one note that says the names could not be read.
+3. **The caller ID** of a call the extension placed, such as `"Oleg Petrov" <101>`. An employee who never calls out
+   has no name from here.
+
+A sync that reads a call again keeps the name the call already has, even when this time no call of that extension
+named it.
 
 ## Import the history, then keep it current
 

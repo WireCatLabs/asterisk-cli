@@ -23,6 +23,8 @@ export interface Since {
 /** What a SQL backend answers: the rows that started at `since` or later, oldest first. */
 export interface SqlCdr {
   rows(since: Since): Promise<RawRow[]>
+  /** FreePBX's extension names; empty on any other server, null when the user may not read them. */
+  names?(): Promise<Map<string, string> | null>
   close(): Promise<void>
 }
 
@@ -100,6 +102,24 @@ export const sqlCdr = async (source: SqlSource, password: string, options: SqlCd
         return rows
       } catch (error) {
         throw worded(source, error)
+      }
+    },
+    names: async () => {
+      if (source.kind !== "mysql") return new Map()
+      try {
+        // Only these two columns: the table also keeps each extension's secrets, which the admin grants no access to.
+        const rows = await reader.query("SELECT extension, name FROM asterisk.users")
+        return new Map(
+          rows.flatMap((row) => {
+            const extension = String(row.extension ?? "").trim()
+            const name = String(row.name ?? "").trim()
+            return extension && name && name !== extension ? [[extension, name] as const] : []
+          }),
+        )
+      } catch (error) {
+        const reason = isCliError(error) ? error.details.reason : undefined
+        // No such database or table: not a FreePBX, which has nothing to say.
+        return reason === "db.no-database" || reason === "db.no-table" ? new Map() : null
       }
     },
     close: () => reader.close(),

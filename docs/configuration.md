@@ -39,6 +39,7 @@ What each setting means is on [install and connect](installation.md).
 | `cdr_timezone` | this computer's | the zone of the CDR's times |
 | `phone_region` | — | the country of numbers written without `+`, such as `ru`, or several: `es,ru` |
 | `extension_pattern` | `^\d{2,5}$` | which numbers are internal extensions |
+| `extension_names` | — | names of internal extensions, as `101=Anna Smirnova,103=Vera Orlova`; above FreePBX's names and the caller ID |
 | `files_from` | `local` | `local`, or `sftp` to read `Master.csv` and the recordings on the PBX |
 | `sftp_host`, `sftp_port`, `sftp_user` | —, 22, — | the PBX's SSH server, for `files_from sftp` |
 | `sftp_key_path` | — | a private key file; without it `session start` asks the SFTP password |

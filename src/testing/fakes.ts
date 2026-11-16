@@ -44,7 +44,8 @@ export const ROWS: RawRow[] = [
 ]
 
 /** A CDR table that refuses any password but the test's, as the server does, and records the bounds it was asked. */
-export const fakeTable = () => {
+/** `names`: FreePBX's asterisk.users as the server answers it, or null for a user that may not read it. */
+export const fakeTable = (names?: Map<string, string> | null) => {
   const asked: string[] = []
   const options: SqlCdrOptions[] = []
   const open = async (source: SqlSource, password: string, given: SqlCdrOptions): Promise<SqlCdr> => {
@@ -59,6 +60,7 @@ export const fakeTable = () => {
         asked.push(since.wall)
         return ROWS.filter((row) => String(row.calldate) >= since.wall)
       },
+      ...(names === undefined ? {} : { names: async () => names }),
       close: async () => {},
     }
   }
