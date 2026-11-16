@@ -108,8 +108,8 @@ settings.
    are saved only when that check works. When it refuses a password or a setting, the form goes back to the step
    that has it. The sync then brings in the calls of the last 30 days, with their recordings.
 
-These questions come from `pbx` itself, from version 0.7.0, so WireCat Desktop and the terminal always ask the same
-ones. An older WireCat Desktop shows its own shorter form, without SFTP and the SSH tunnel.
+These questions come from `pbx` itself, so WireCat Desktop and the terminal always ask the same ones. An older
+WireCat Desktop shows its own shorter form, without SFTP and the SSH tunnel.
 
 The time zone of the records and the recordings' file names are on the account's **Settings** page. To turn
 recordings into text, see [transcribe](#transcribe).
