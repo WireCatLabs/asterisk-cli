@@ -34,7 +34,8 @@ export const runCli = async (
     tty = false,
   }: {
     keyring?: KeyringStore
-    stdin?: string
+    /** A stream stays open as long as the test keeps it, as a pipe from another program may. */
+    stdin?: string | Readable
     env?: NodeJS.ProcessEnv
     sql?: AsteriskEnvironment["sql"]
     sftp?: AsteriskEnvironment["sftp"]
@@ -61,7 +62,9 @@ export const runCli = async (
     ...(speech ? { speech } : {}),
     ...(env ? { env: { ...process.env, ...env } } : {}),
     ...(answer ? { answer } : {}),
-    ...(stdin === undefined ? {} : { stdin: Object.assign(Readable.from([stdin]), { isTTY: false }) }),
+    ...(stdin === undefined
+      ? {}
+      : { stdin: Object.assign(typeof stdin === "string" ? Readable.from([stdin]) : stdin, { isTTY: false }) }),
   }
   const code = await run(argv, options)
   const text = { out: out.join(""), err: err.join("") }

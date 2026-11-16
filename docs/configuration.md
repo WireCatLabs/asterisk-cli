@@ -11,6 +11,13 @@ pbx office config unset cdr_csv_path
 
 `config show` lists each setting and where it came from: the file, a variable or the default.
 
+**On this page:**
+
+1. [The source](#the-source)
+2. [Transcription](#transcription)
+3. [Permissions](#permissions)
+4. [Run records](#run-records)
+
 ## The source
 
 What each setting means is on [install and connect](installation.md).
@@ -59,7 +66,7 @@ pbx office config set permissions.meetings.transcribe deny
 
 ## Run records
 
-A command that fails is kept as a run, for `pbx runs list` and `runs show`. `meetings sync`, `meetings
-transcribe` and `session status --check` do their work in a run, so `--record` keeps them when they succeed too.
+A command that fails is kept as a run, for `pbx runs list` and `runs show`. `meetings sync`,
+`meetings transcribe` and `session status --check` do their work in a run, so `--record` keeps them when they succeed too.
 `record_input` decides whether a run keeps the words you typed. Secrets are masked either way; see
 [Security](security.md).
