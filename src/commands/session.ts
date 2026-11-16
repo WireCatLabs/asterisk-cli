@@ -1,3 +1,4 @@
+import { StringDecoder } from "node:string_decoder"
 import { CliError } from "@wirecat/cli-base"
 import { annotate } from "@wirecat/cli-base/commands"
 import { readSecret } from "@wirecat/cli-core"
@@ -5,11 +6,13 @@ import {
   commandWords,
   environmentOf,
   FETCH,
+  inputPolicy,
   itemOf,
   LOCAL_READ,
   LOCAL_WRITE,
   listOf,
   logsInOrOut,
+  MAX_SECRET_INPUT,
   outputFor,
   ProfileTokenStore,
   profileFree,
@@ -37,17 +40,61 @@ const ASKED: Record<SecretKind, string> = {
   sftp: "password of the SFTP user: ",
 }
 
+const PIPE_WAIT_MS = 30_000
+
 /**
- * Each password the source needs: asked one by one at a terminal; from a pipe, one per line in the order they are
- * asked, since a pipe is read once and whole.
+ * The first `count` lines of a pipe. It stops once they are in, since a caller such as WireCat Desktop may keep the
+ * pipe open after the last one, and gives up after 30 seconds with whatever arrived.
  */
+const pipedLines = (input: NodeJS.ReadableStream, count: number): Promise<string[]> => {
+  const { maxBytes, signal } = inputPolicy(input)
+  const limit = Math.min(maxBytes ?? MAX_SECRET_INPUT, MAX_SECRET_INPUT)
+  const decoder = new StringDecoder("utf8")
+  return new Promise((resolve, reject) => {
+    let text = ""
+    let bytes = 0
+    const settle = (failure?: CliError) => {
+      clearTimeout(timer)
+      input.off("data", data).off("end", end).off("error", error)
+      signal?.removeEventListener("abort", aborted)
+      input.pause()
+      // A paused pipe still keeps Node running until the writer closes it.
+      ;(input as { unref?: () => void }).unref?.()
+      if (failure) reject(failure)
+      else resolve(text.trim().split(/\r?\n/))
+    }
+    const data = (chunk: Buffer | string) => {
+      bytes += Buffer.byteLength(chunk)
+      if (bytes > limit)
+        return settle(
+          new CliError("validation_error", "secret input exceeds its byte limit", { reason: "input.too-large" }),
+        )
+      text += typeof chunk === "string" ? chunk : decoder.write(chunk)
+      if ((text.trimStart().match(/\n/g)?.length ?? 0) >= count) settle()
+    }
+    const end = () => {
+      text += decoder.end()
+      settle()
+    }
+    const error = () =>
+      settle(new CliError("validation_error", "the password input failed", { reason: "input.closed" }))
+    const aborted = () => settle(new CliError("cancelled", "cancelled — nothing was stored"))
+    const timer = setTimeout(() => settle(), PIPE_WAIT_MS)
+    if (signal?.aborted) return aborted()
+    input.on("data", data).once("end", end).once("error", error)
+    signal?.addEventListener("abort", aborted, { once: true })
+    input.resume()
+  })
+}
+
+/** Each password the source needs: asked one by one at a terminal; from a pipe, one per line in the order asked. */
 const askPasswords = async (command: Command, kinds: readonly SecretKind[]): Promise<Passwords> => {
-  const [first] = kinds
-  if (!first) return {}
+  if (kinds.length === 0) return {}
   const input = secretInputOf(command)
+  const stdin = input.input ?? process.stdin
   let answers: string[] = []
-  if ((input.input ?? process.stdin).isTTY) for (const kind of kinds) answers.push(await readSecret(ASKED[kind], input))
-  else answers = (await readSecret(ASKED[first], input)).split(/\r?\n/)
+  if (stdin.isTTY) for (const kind of kinds) answers.push(await readSecret(ASKED[kind], input))
+  else answers = await pipedLines(stdin, kinds.length)
   if (kinds.some((_, index) => !answers[index]))
     throw new CliError(
       "validation_error",

@@ -2,7 +2,7 @@ import { CliError } from "@wirecat/cli-base"
 import { fromFile, type Settings } from "@wirecat/cli-core/cli"
 import type { SqlSource } from "./cdr/sql.js"
 import { SOURCE_SETTINGS, type SourceSetting } from "./config.js"
-import { IDENTITY } from "./identity.js"
+import { DESKTOP, IDENTITY } from "./identity.js"
 import { DEFAULT_PATTERNS } from "./recordings.js"
 
 export interface SftpPlace {
@@ -53,6 +53,26 @@ const need = (profile: string, values: Values, key: SourceSetting, example: stri
   )
 }
 
+/** The settings that say where a profile's calls are; `transcribe_*` says only how they are turned into text. */
+const CONNECTION_SETTINGS = SOURCE_SETTINGS.filter((key) => !key.startsWith("transcribe_"))
+
+/**
+ * A profile with no source settings of its own was never connected: naming one missing setting would read as if
+ * Master.csv had been chosen.
+ */
+const notConnected = (settings: Settings): CliError => {
+  const { profile } = settings
+  const here = settings.accountProfiles ?? settings.profilesHere
+  const profiles =
+    here.length > 0 ? `Profiles on this computer: ${here.join(", ")}` : "No profile is set up on this computer"
+  return new CliError(
+    "configuration_error",
+    `profile ${profile} is not connected to an Asterisk yet. Connect it in WireCat Desktop, or set where its calls ` +
+      `are (${DESKTOP.docs}/installation) and run ${IDENTITY.command} ${profile} session start. ${profiles}.`,
+    { reason: "source.not-configured" },
+  )
+}
+
 const text = (values: Values, key: SourceSetting): string | null => {
   const value = values[key]
   return typeof value === "string" && value.trim() ? value.trim() : null
@@ -91,6 +111,8 @@ export const sourceOf = (settings: Settings): SourceConfig => {
   const values = valuesOf(settings)
   const kind = text(values, "cdr_source") ?? "csv"
   const filesFrom = text(values, "files_from") ?? "local"
+  if (kind === "csv" && !text(values, "cdr_csv_path") && !CONNECTION_SETTINGS.some((key) => key in settings.configured))
+    throw notConnected(settings)
   const cdr: SourceConfig["cdr"] =
     kind === "csv"
       ? {

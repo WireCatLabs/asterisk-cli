@@ -3,6 +3,14 @@
 What WireCat CLIs share — the keyring, permissions, MCP and what never reaches a log — is on the
 [shared security page](https://wirecat.dev/en/docs/security). This page keeps only what is particular to `pbx`.
 
+**On this page:**
+
+1. [What the store holds](#what-the-store-holds)
+2. [Recordings and consent](#recordings-and-consent)
+3. [The MCP server](#the-mcp-server)
+4. [What a run record hides](#what-a-run-record-hides)
+5. [Files on this computer](#files-on-this-computer)
+
 `pbx` keeps its settings in `config.json` and its state in the folders `pbx doctor` shows. It reads the PBX
 and never writes to it: Master.csv and the recordings are opened for reading only, and a database session is opened
 read-only and sends a `SELECT` of the CDR table, with values as parameters. Give it a user that may do no more, as
@@ -39,9 +47,13 @@ law of your country decides how (in Russia, for example, 152-FZ on personal data
 recorded, and keeping recordings only as long as allowed, are the PBX owner's duties. `pbx` reads only the
 recordings the PBX already made, and deletes none of them.
 
+## The MCP server
+
 `pbx personal mcp serve --http` listens on `127.0.0.1` only, for browser apps that reach it through your own
 tunnel. Each app logs in with a one-time code, and the server keeps a hash of each login it gives, in the state
 folder, readable by you only. `pbx personal mcp revoke` forgets every one of them.
+
+## What a run record hides
 
 A run record keeps the command line as you typed it, so `pbx runs show` tells you what was run. A secret is still
 stored as `[redacted]`: an option named like a token or password, a password in a link, a long opaque string. A
@@ -57,6 +69,8 @@ hash. The value after a secret name is hidden too, whether it follows `=`, `:` o
 secret name and a space (`pin this message` stays), a hex key in upper case, a short commit hash or a UUID, a short
 password typed without a secret name before it, and a secret inside a link or a file path unless it is in a known
 format or after a secret name.
+
+## Files on this computer
 
 `config.json` is saved readable by you only (`0600`), and its folder is created for you only (`0700`). A file or
 folder made by an older version may be open to other users of the computer: `pbx doctor` lists each under

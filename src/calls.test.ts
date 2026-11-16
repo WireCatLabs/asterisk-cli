@@ -135,9 +135,21 @@ it("skips a row it cannot read, says so, and imports the rest", async () => {
   expect(await listed()).toHaveLength(5)
 })
 
-it("names the setting to fill when the profile has no source yet", async () => {
+it("says a profile with no source settings of its own is not connected, and lists the profiles here", async () => {
+  await office()
   const synced = await runCli(["fresh", "meetings", "sync", "--json"])
   expect(synced.code).not.toBe(0)
+  expect(synced.json()).toMatchObject({ error: { code: "configuration_error", reason: "source.not-configured" } })
+  expect(synced.err).toContain("profile fresh is not connected to an Asterisk yet")
+  expect(synced.err).toContain("https://wirecat.dev/en/docs/pbx/installation")
+  expect(synced.err).toContain("pbx fresh session start")
+  expect(synced.err).toMatch(/Profiles on this computer: [^"]*office/)
+  expect(synced.err).not.toContain("cdr_csv_path")
+})
+
+it("names the setting to fill when the profile chose Master.csv but not its path", async () => {
+  expect((await runCli(["fresh", "config", "set", "cdr_source", "csv", "--json"])).code).toBe(0)
+  const synced = await runCli(["fresh", "meetings", "sync", "--json"])
   expect(synced.json()).toMatchObject({ error: { code: "configuration_error", reason: "source.not-configured" } })
   expect(synced.err).toContain("pbx fresh config set cdr_csv_path")
 })

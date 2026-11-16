@@ -3,7 +3,7 @@ import { join } from "node:path"
 import { PassThrough } from "node:stream"
 import { CliError, memoryKeyring } from "@wirecat/cli-base"
 import type { SshTunnel, SshTunnelOptions } from "@wirecat/cli-core/sftp"
-import { beforeEach, expect, it } from "vitest"
+import { beforeEach, expect, it, vi } from "vitest"
 import type { RawRow } from "./cdr/record.js"
 import type { SqlCdr, SqlCdrOptions, SqlSource } from "./cdr/sql.js"
 import { asteriskFolder, configure, fakeSpeech, freshFolders, runCli } from "./testing/harness.js"
@@ -99,6 +99,30 @@ it("session start asks the database password, checks it, and keeps it only once 
   const status = await runCli(["office", "session", "status", "--check", "--json"], { keyring, sql: table.open })
   expect(status.json().item).toMatchObject({ password: "db", state: "saved", verified: true })
   expect(status.out).not.toContain(PASSWORD)
+})
+
+it("session start stops reading a pipe once the password line is in, though the pipe stays open", async () => {
+  const stdin = new PassThrough()
+  stdin.write(`${PASSWORD}\n`)
+  const started = await runCli(["office", "session", "start", "--json"], { sql: fakeTable().open, stdin })
+  expect(started.code, started.err).toBe(0)
+  expect(started.json().item).toMatchObject({ password: "db", verified: true })
+  expect(stdin.writableEnded).toBe(false)
+  stdin.destroy()
+})
+
+it("session start gives up on an open pipe that sends no password after 30 seconds", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+  try {
+    const stdin = new PassThrough()
+    const started = runCli(["office", "session", "start", "--json"], { sql: fakeTable().open, stdin })
+    await vi.advanceTimersByTimeAsync(30_000)
+    const ran = await started
+    expect(ran.json()).toMatchObject({ error: { code: "validation_error", message: "no password was given" } })
+    stdin.destroy()
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 it("syncs the CDR table from six hours before the cursor, in the CDR's own wall time", async () => {

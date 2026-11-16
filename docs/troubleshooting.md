@@ -9,13 +9,13 @@ for a support request.
 | `pbx` is not found | Open a new terminal, and check that npm's global folder is on `PATH`. |
 | `pbx` runs another program | Another tool took the name. Type `wcat-pbx` instead. |
 | "name a profile" | Put the profile first, as in `pbx office meetings list`, or set `PBX_PROFILE`. |
-| `source.not-configured` | The message names the setting and the `config set` that fills it. |
+| `source.not-configured` | A profile that was never connected says so: connect it in WireCat Desktop, or set its source as [connect from the terminal](installation.md#connect-from-the-terminal) shows. Otherwise the message names the missing setting and the `config set` that fills it. |
 | `cdr.unknown-columns` | Master.csv has a column count `cdr_csv` never writes. Name the columns with `cdr_csv_columns`. |
 | Times are off by hours | Set `cdr_timezone` to the PBX's zone, or to `UTC` when `cdr.conf` has `usegmtime=yes`. Then `meetings sync --since-time` again: the records are updated, not doubled. |
 | "N call records could not be read" | Those rows have no start time; the rest were imported. |
 | `db.refused` | The database refused the user or the password. Run `session start` again. |
 | `db.no-table`, `db.no-select` | Set `db_table`, or grant the user `SELECT` on the table. |
-| `network_error` from the database | The server is not reachable from here. Reach it through the phone system's SSH, as [a database behind the phone system's SSH](installation.md#a-database-behind-the-phone-systems-ssh) shows. |
+| `network.failed` from the database | The server is not reachable from here. Reach it through the phone system's SSH, as [a database behind the phone system's SSH](installation.md#a-database-behind-the-phone-systems-ssh) shows. |
 | `sftp.host-key-missing` | The SFTP or SSH server's key is not pinned yet. Compare the fingerprint in the message with `ssh-keygen -lf` on the server, then run the `config set` it names. |
 | "this profile needs 2 passwords" | Type each password when asked, or pipe them one per line in the order the message gives. |
 | `transcription.no-key` | The profile transcribes with OpenAI and has no key. Give it in `OPENAI_API_KEY`, or `config set transcribe_engine local`. |

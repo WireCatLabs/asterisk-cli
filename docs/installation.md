@@ -253,8 +253,8 @@ fingerprint and the command that pins it. Compare the fingerprint with the phone
 whose key changes is refused. Then `session start` asks the SFTP password, if there is no key file, checks it by
 reading the newest call records, and keeps it in the keyring.
 
-Paths are the phone system's: `cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv`, `recordings_path
-/var/spool/asterisk/monitor`. A profile that reads its records from a database and its recordings over SFTP with a
+Paths are the phone system's: `cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv`,
+`recordings_path /var/spool/asterisk/monitor`. A profile that reads its records from a database and its recordings over SFTP with a
 password asks both passwords, the database's first; with an SSH tunnel too, the order is the database's, the SSH
 user's, then the SFTP user's. A dropped connection is opened again and the file is read on from where it stopped; a
 wrong password, a changed key or a missing file is not tried again.
