@@ -194,6 +194,40 @@ tunneled=$("${cli[@]}" live-tunnel meetings list --limit 100 --json | node -e '
 "${cli[@]}" live-tunnel session status --check --json | grep -q '"verified":true'
 "${cli[@]}" live-tunnel session end --json >/dev/null
 
+# The setup flow, as WireCat Desktop runs it: every answer as one JSON line on stdin, saved only after the check reads
+# MariaDB through the tunnel with the files over SFTP. Passwords go through printf, a builtin, never an argument.
+answers() {
+  printf '{"cdr_source":"mysql","files_from":"sftp","sftp_host":"127.0.0.1","sftp_port":%s,"sftp_user":"wirecat",' \
+    "$sftp_port"
+  printf '"sftp":"%s","db_host":"%s","db_port":3306,"db_user":"reader","db":"%s","db_ssh_host":"127.0.0.1",' \
+    "$password" "$1" "$password"
+  printf '"db_ssh_port":%s,"db_ssh_user":"wirecat","ssh":"%s","recordings_path_remote":"/pbx/monitor",' \
+    "$ssh_port" "$ssh_password"
+  printf '"phone_region":["RU"]%s}\n' "$2"
+}
+values() { "${cli[@]}" live-setup setup show --json | node -e '
+  process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(0, "utf8")).item.values ?? {}))'; }
+answers "$run-mariadb" "" | "${cli[@]}" live-setup setup apply --dry-run --json | grep -q '"valid":true' ||
+  { echo "the setup answers did not pass the dry run" >&2; exit 1; }
+if answers "$run-mariadb" "" | "${cli[@]}" live-setup setup run apply --json --answer-stdin >"$work/setup.json" 2>&1; then
+  echo "setup accepted an unpinned SFTP server" >&2
+  exit 1
+fi
+grep -q '"sftp.host-key-missing"' "$work/setup.json" && ! grep -q "$password" "$work/setup.json"
+values | grep -q '"db_host"' && { echo "a failed setup saved settings" >&2; exit 1; }
+pinned=",\"sftp_host_key\":\"$shown\",\"db_ssh_host_key\":\"$ssh_shown\""
+answers "$run-mariadb" "$pinned" | "${cli[@]}" live-setup setup run apply --json --answer-stdin 2>/dev/null |
+  grep -q '"outcome":"ok"' || { echo "setup did not save a working profile" >&2; exit 1; }
+"${cli[@]}" live-setup meetings sync --since-time 2026-10-01T00:00:00Z --json >/dev/null
+count live-setup 5
+moved='{"cdr_source":"mysql","files_from":"sftp","db_host":"127.0.0.2","phone_region":["RU"]}'
+if printf '%s\n' "$moved" | "${cli[@]}" live-setup setup apply --json >"$work/moved.json" 2>&1; then
+  echo "setup tried the old password on a changed database server" >&2
+  exit 1
+fi
+grep -q '"param":"db"' "$work/moved.json"
+"${cli[@]}" live-setup session end --json >/dev/null
+
 # The calls' numbers and marks, from the store the CSV profile filled.
 "${cli[@]}" live-csv stats calls show --since-time 2026-10-01 --json | node -e '
   const { item } = JSON.parse(require("fs").readFileSync(0, "utf8"))
@@ -209,4 +243,4 @@ marked=$("${cli[@]}" live-csv meetings list --limit 100 --json | node -e '
 
 "${cli[@]}" doctor --json >/dev/null
 
-echo "live check passed: describe format 2; Master.csv, MariaDB 11.4 and PostgreSQL 18 each imported 5 calls (6 CDR rows, a transfer joined) twice without doubles; SFTP (atmoz/sftp) shown its key, pinned, read Master.csv and linked recordings; MariaDB through an OpenSSH tunnel, its key shown and pinned, with three passwords in one profile; stats, a mark and a search over the stored calls; a wrong password refused"
+echo "live check passed: describe format 2; Master.csv, MariaDB 11.4 and PostgreSQL 18 each imported 5 calls (6 CDR rows, a transfer joined) twice without doubles; SFTP (atmoz/sftp) shown its key, pinned, read Master.csv and linked recordings; MariaDB through an OpenSSH tunnel, its key shown and pinned, with three passwords in one profile; the setup flow refused an unpinned server, saved the same profile once pinned, and refused a changed server without its password; stats, a mark and a search over the stored calls; a wrong password refused"

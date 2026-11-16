@@ -33,13 +33,13 @@ export interface SourceConfig {
 /** A password `session start` asks for: the database's, the SFTP user's, or the SSH tunnel user's. */
 export type SecretKind = "db" | "sftp" | "ssh"
 
-type Values = Partial<Record<SourceSetting, string | number | boolean>>
+type Values = Partial<Record<SourceSetting, string | number | boolean | string[]>>
 
 const valuesOf = (settings: Settings): Values =>
   Object.fromEntries(
     SOURCE_SETTINGS.map((key) => [
       key,
-      fromFile<string | number | boolean | undefined>(settings, key, undefined).value,
+      fromFile<string | number | boolean | string[] | undefined>(settings, key, undefined).value,
     ]),
   )
 
@@ -67,8 +67,8 @@ const notConnected = (settings: Settings): CliError => {
     here.length > 0 ? `Profiles on this computer: ${here.join(", ")}` : "No profile is set up on this computer"
   return new CliError(
     "configuration_error",
-    `profile ${profile} is not connected to an Asterisk yet. Connect it in WireCat Desktop, or set where its calls ` +
-      `are (${DESKTOP.docs}/installation) and run ${IDENTITY.command} ${profile} session start. ${profiles}.`,
+    `profile ${profile} is not connected to an Asterisk yet. Connect it in WireCat Desktop, or run ` +
+      `${IDENTITY.command} ${profile} setup in a terminal (${DESKTOP.docs}/installation). ${profiles}.`,
     { reason: "source.not-configured" },
   )
 }
@@ -169,7 +169,9 @@ export const sourceOf = (settings: Settings): SourceConfig => {
     zone: zoneOf(text(values, "cdr_timezone")),
     phoneRegions: [
       ...new Set(
-        (text(values, "phone_region") ?? "")
+        [values.phone_region ?? ""]
+          .flat()
+          .join(",")
           .toLowerCase()
           .split(/[\s,]+/)
           .filter(Boolean),
