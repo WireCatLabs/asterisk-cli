@@ -108,8 +108,8 @@ settings.
    are saved only when that check works. When it refuses a password or a setting, the form goes back to the step
    that has it. The sync then brings in the calls of the last 30 days, with their recordings.
 
-These questions come from `pbx` itself, from version 0.7.0, so WireCat Desktop and the terminal always ask the same
-ones. An older WireCat Desktop shows its own shorter form, without SFTP and the SSH tunnel.
+These questions come from `pbx` itself, so WireCat Desktop and the terminal always ask the same ones. An older
+WireCat Desktop shows its own shorter form, without SFTP and the SSH tunnel.
 
 The time zone of the records and the recordings' file names are on the account's **Settings** page. To turn
 recordings into text, see [transcribe](#transcribe).
@@ -319,8 +319,10 @@ An extension gets its name from three places. The first one that has a name wins
    GRANT SELECT (extension, name) ON asterisk.users TO 'wirecat_reader'@'10.0.0.%';
    ```
 
-   Without this grant the sync still works. Each sync prints one note that the names were not read from
-   `asterisk.users`. A plain Asterisk without FreePBX has no such table, and shows the same note.
+   Without this grant the sync still works. The check in `pbx office setup`, `session start` and
+   `session status --check` prints one note that the names were not read from `asterisk.users`. A sync prints no
+   note, so a sync that cron runs stays quiet. A plain Asterisk without FreePBX has no such table, and the check shows
+   the same note. Give the grant later, and the next sync reads the names.
 3. **The caller ID** of a call the extension placed, such as `"Oleg Petrov" <101>`. An employee who never calls out
    has no name from here.
 

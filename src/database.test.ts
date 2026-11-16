@@ -216,16 +216,19 @@ it("names extensions by extension_names, then FreePBX's asterisk.users, then the
   expect(await employeeNames(keyring, table.open)).toEqual({ "101": "Oleg Owner", "102": "Anna FreePBX" })
 })
 
-it("a user that may not read asterisk.users syncs all the same, with one note that names the grant", async () => {
+it("a user that may not read asterisk.users hears it once from session start, and every sync stays quiet", async () => {
   const table = fakeTable(null)
   const keyring = memoryKeyring()
-  await runCli(["office", "session", "start"], { keyring, sql: table.open, stdin: `${PASSWORD}\n` })
-  const synced = await runCli(["office", "meetings", "sync", "--since-time", "2026-10-31T00:00:00Z", "--json"], {
-    keyring,
-    sql: table.open,
-  })
-  expect(synced.code, synced.err).toBe(0)
-  expect(synced.err.match(/asterisk\.users/g)).toHaveLength(2)
-  expect(synced.err).toContain("on FreePBX, grant the user SELECT (extension, name) on asterisk.users")
+  const started = await runCli(["office", "session", "start"], { keyring, sql: table.open, stdin: `${PASSWORD}\n` })
+  expect(started.code, started.err).toBe(0)
+  expect(started.err).toContain("on FreePBX, grant the user SELECT (extension, name) on asterisk.users")
+  for (const _ of [1, 2]) {
+    const synced = await runCli(["office", "meetings", "sync", "--since-time", "2026-10-31T00:00:00Z", "--json"], {
+      keyring,
+      sql: table.open,
+    })
+    expect(synced.code, synced.err).toBe(0)
+    expect(synced.err).not.toContain("asterisk.users")
+  }
   expect(await employeeNames(keyring, table.open)).toEqual({ "101": null, "102": "Anna Managerova" })
 })

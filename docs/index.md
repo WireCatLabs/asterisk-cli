@@ -49,9 +49,9 @@ all WireCat tools keep their data in one local store.
 ## What it does not do yet
 
 - **Summaries.** Your agent reads a transcript and writes the summary. `pbx` writes none of its own.
-- **Playing a recording.** A call links its recording by the file's path, and you open the file in a player. There
-  is no link that plays it in a browser. `meetings show` prints a link for WireCat Desktop, which opens the call once
-  Desktop supports links to calls.
+- **Playing a recording over SFTP.** WireCat Desktop plays a call's recording on the call's card when the
+  recordings folder is on this computer. When `pbx` reads the recordings over SFTP, the file stays on the phone
+  system, and the card cannot play it. There is no link that plays a recording in a browser.
 - **Who said what in a mono recording.** A stereo recording names the caller and the employee on each line when you
   set [`recordings_channels`](installation.md#transcribe). A mono recording, one mixed track, gives the text without
   names.
