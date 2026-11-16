@@ -32,6 +32,7 @@ interface Listed {
   id: string
   title: string
   started_at: string
+  call?: { direction: string | null; manager: { name: string | null } | null; client_phone: string | null }
 }
 
 const listed = async (): Promise<Listed[]> => {
@@ -72,6 +73,20 @@ it("imports each call of Master.csv as a meeting, its times read in the CDR's zo
   expect(first?.started_at).toBe("2026-10-31T09:00:00.000Z")
   expect(calls.map(({ title }) => title)).toContain("102 → +79000000002")
   expect(calls.map(({ title }) => title)).toContain("101 → 102")
+})
+
+it("gives each outside call its direction, the employee and the caller's number, and an internal call none", async () => {
+  await office()
+  expect((await sync()).code).toBe(0)
+  const calls = await listed()
+  const call = (title: string) => calls.find((one) => one.title === title)?.call
+  expect(call("+79000000001 → 101")).toEqual({
+    direction: "in",
+    manager: { name: "Oleg Operatorov", person: expect.stringMatching(/^person:/) },
+    client_phone: "+79000000001",
+  })
+  expect(call("102 → +79000000002")).toMatchObject({ direction: "out", client_phone: "+79000000002" })
+  expect(call("101 → 102")).toBeUndefined()
 })
 
 it("a second sync of the same file adds nothing, and a new row is added once", async () => {
