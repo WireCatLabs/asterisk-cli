@@ -2,6 +2,14 @@
 
 Notable changes to `@wirecat/asterisk-cli`. One section per version, newest first.
 
+## 0.8.0 — 17.11.2026
+
+### Changed — may break callers
+
+- **`meetings transcribe` answers the same report as the other phone CLIs (beeline, b24).** The audio time is
+  `audio_ms`, in milliseconds (was `audio_seconds`). Each failed call has its `ref`. A call with no recording is listed
+  under `failed` with the reason `recording.missing`, and `without_recording` is gone.
+
 ## 0.7.2 — 16.11.2026
 
 ### Fixed
