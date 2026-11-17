@@ -11,8 +11,10 @@ Your company's phone calls from an Asterisk PBX (FreePBX, Issabel, VitalPBX or p
 transcribed on your computer, counted, searchable by words and by meaning, and ready for any agent, within limits you
 set.
 
-[Documentation](docs/index.md) · [Install and connect](docs/installation.md) · [Commands](docs/commands.md) ·
-[WireCat](https://wirecat.dev)
+[Docs](https://wirecat.dev/en/docs/pbx) ·
+[Install](https://github.com/WireCatLabs/asterisk-cli/blob/main/docs/installation.md) ·
+[Usage](https://github.com/WireCatLabs/asterisk-cli/blob/main/docs/usage.md) ·
+[Discord](https://discord.gg/DebENqbRrJ)
 
 [![npm](https://img.shields.io/npm/v/@wirecat/asterisk-cli)](https://www.npmjs.com/package/@wirecat/asterisk-cli)
 [![CI](https://github.com/WireCatLabs/asterisk-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/WireCatLabs/asterisk-cli/actions/workflows/ci.yml)
