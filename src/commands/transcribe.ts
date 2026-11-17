@@ -61,9 +61,8 @@ export const callQuery = (text: string) => {
 
 const REPORT = v.strictObject({
   transcribed: v.number(),
-  audio_seconds: v.number(),
-  failed: v.array(v.strictObject({ meeting: v.number(), reason: v.string(), message: v.string() })),
-  without_recording: v.number(),
+  audio_ms: v.number(),
+  failed: v.array(v.strictObject({ meeting: v.number(), ref: v.string(), reason: v.string(), message: v.string() })),
   remaining: v.number(),
   stopped: v.boolean(),
 })

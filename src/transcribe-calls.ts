@@ -9,6 +9,7 @@ import { isCliError } from "@wirecat/cli-base"
 import type { QueryAst } from "@wirecat/cli-base/query"
 import {
   type Attachment,
+  formatMeetingReference,
   type MeetingStore,
   type MeetingTranscriptReceiptStore,
   transcribeMeeting,
@@ -32,13 +33,18 @@ export interface TranscribeOptions {
 
 export interface TranscribeReport {
   transcribed: number
-  audio_seconds: number
-  failed: { meeting: number; reason: string; message: string }[]
-  /** Calls the query names that have no recording attached: nothing to transcribe. */
-  without_recording: number
+  audio_ms: number
+  failed: FailedCall[]
   remaining: number
   /** True when the run stopped on its signal before reaching --max-meetings. */
   stopped: boolean
+}
+
+export interface FailedCall {
+  meeting: number
+  ref: string
+  reason: string
+  message: string
 }
 
 export interface TranscribePorts {
@@ -106,21 +112,20 @@ export const transcribeCalls = async (
   const calls = (await store.meetings({ accountId, query: options.query })).sort(
     (a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0),
   )
-  const report: TranscribeReport = {
-    transcribed: 0,
-    audio_seconds: 0,
-    failed: [],
-    without_recording: 0,
-    remaining: 0,
-    stopped: false,
-  }
+  const report: TranscribeReport = { transcribed: 0, audio_ms: 0, failed: [], remaining: 0, stopped: false }
+  const failed = (meeting: number, reason: string, message: string): FailedCall => ({
+    meeting,
+    ref: formatMeetingReference({ type: "meeting", accountId, meetingId: meeting }),
+    reason,
+    message,
+  })
   const pending = []
   for (const call of calls) {
     const details = await store.meeting(call.id)
     if (!details || (!options.replace && details.transcripts.length > 0)) continue
     const recording = recordingOf(details.attachments)
     if (recording) pending.push({ call, recording, speakers: speakersOf(details, ports.sides ?? null) })
-    else report.without_recording++
+    else report.failed.push(failed(call.id, "recording.missing", "the call has no recording"))
   }
   const shown = Math.min(pending.length, options.limit)
   for (const [index, { call, recording, speakers }] of pending.entries()) {
@@ -150,7 +155,7 @@ export const transcribeCalls = async (
         await local.dispose()
       }
       report.transcribed++
-      report.audio_seconds += Math.round((call.durationMs ?? 0) / 1000)
+      report.audio_ms += call.durationMs ?? 0
       options.progress?.(`${index + 1}/${shown} meeting ${call.id} transcribed`)
     } catch (error) {
       // The run's deadline stops a read or a recognition halfway, whatever error that throws; the calls finished
@@ -162,11 +167,9 @@ export const transcribeCalls = async (
       }
       if (isCliError(error) && error.code === "cancelled") throw error
       const reason = isCliError(error) ? (error.details.reason ?? error.code) : "unexpected"
-      report.failed.push({
-        meeting: call.id,
-        reason: String(reason),
-        message: isCliError(error) ? error.message : "the call could not be transcribed",
-      })
+      report.failed.push(
+        failed(call.id, String(reason), isCliError(error) ? error.message : "the call could not be transcribed"),
+      )
       options.progress?.(`${index + 1}/${shown} meeting ${call.id} failed: ${reason}`)
     }
   }
