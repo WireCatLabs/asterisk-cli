@@ -36,10 +36,18 @@ beforeEach(async () => {
   expect(synced.code, synced.err).toBe(0)
 })
 
-it("transcribes the calls that have a recording, counts those without, and finds what the client said", async () => {
+it("transcribes the calls that have a recording, lists those without as failed, and finds what the client said", async () => {
   const done = await transcribe([], { speech: speech() })
   expect(done.code, done.err).toBe(0)
-  expect(done.json().item).toMatchObject({ transcribed: 2, failed: [], without_recording: 3, remaining: 0 })
+  const item = done.json().item as { transcribed: number; audio_ms: number; failed: { ref: string; reason: string }[] }
+  expect(item).toMatchObject({ transcribed: 2, remaining: 0 })
+  expect(item.audio_ms).toBeGreaterThan(0)
+  expect(item.failed.map(({ reason }) => reason)).toEqual([
+    "recording.missing",
+    "recording.missing",
+    "recording.missing",
+  ])
+  expect(item.failed.every(({ ref }) => ref.startsWith("meeting:"))).toBe(true)
 
   const list = await runCli(["office", "meetings", "list", "--json"])
   const call = (list.json().items as { id: string; title: string }[]).find(
@@ -50,7 +58,7 @@ it("transcribes the calls that have a recording, counts those without, and finds
   expect(transcript.out).toContain("оплатим в пятницу")
 
   const again = await transcribe([], { speech: speech() })
-  expect(again.json().item).toMatchObject({ transcribed: 0, without_recording: 3 })
+  expect(again.json().item).toMatchObject({ transcribed: 0, failed: [{}, {}, {}] })
 })
 
 it("lists a recording that cannot be decoded and goes on with the rest", async () => {
@@ -64,7 +72,9 @@ it("lists a recording that cannot be decoded and goes on with the rest", async (
   })
   const done = await transcribe([], { speech: failing })
   expect(done.code, done.err).toBe(0)
-  expect(done.json().item).toMatchObject({ transcribed: 1, failed: [{ reason: "unexpected" }] })
+  const item = done.json().item as { transcribed: number; failed: { reason: string }[] }
+  expect(item.transcribed).toBe(1)
+  expect(item.failed.filter(({ reason }) => reason !== "recording.missing")).toMatchObject([{ reason: "unexpected" }])
 })
 
 it("refuses a model that is not downloaded, and says how to get it", async () => {
