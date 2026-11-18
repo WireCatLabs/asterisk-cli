@@ -7,7 +7,7 @@ ran it · ⛔ not tested offline, with the reason and where it is checked instea
 Measured from the test run (`coverage/argv.jsonl`), not searched for — see
 [TESTING.md](TESTING.md) for how, and for the states and failures that cut across commands.
 
-**126 ✅ · 48 ⛔ · 0 ❌** — 55 commands, 119 options.
+**130 ✅ · 48 ⛔ · 0 ❌** — 56 commands, 122 options.
 
 | Command | Option | | Note |
 |---|---|---|---|
@@ -19,6 +19,10 @@ Measured from the test run (`coverage/argv.jsonl`), not searched for — see
 | `session status` | `--check` | ✅ |  |
 | `session end` |  | ✅ |  |
 | `session list` |  | ✅ |  |
+| `account remove` |  | ✅ |  |
+| `account remove` | `--keep-data` | ✅ |  |
+| `account remove` | `--delete-data` | ✅ |  |
+| `account remove` | `--dry-run` | ✅ |  |
 | `meetings list` |  | ✅ |  |
 | `meetings list` | `--backend` | ⛔ | cli-core 0.660.0 src/store/meetings-read-through.test.ts drives archive, server and both on a shared source |
 | `meetings list` | `--limit` | ✅ |  |

@@ -1,5 +1,6 @@
 import { appendFileSync, readFileSync, utimesSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { memoryKeyring } from "@wirecat/cli-base"
 import { wallClock } from "@wirecat/cli-core/cli"
 import { afterEach, beforeEach, expect, it } from "vitest"
 import { openAsteriskStore } from "./store.js"
@@ -231,4 +232,33 @@ it("a resync that misses the call naming an extension keeps the name the call wa
   const transferred = (await listed()).find(({ title }) => title === "+79000000004 → 103") as Listed
   const names = JSON.parse(await details(transferred.id)).item.participants.map(({ name }: { name: string }) => name)
   expect(names).toEqual(["Petr Testov", "Oleg Operatorov", null])
+})
+
+it("account remove forgets the saved password and keeps or deletes the profile's calls", async () => {
+  await office()
+  const keyring = memoryKeyring({ "asterisk-cli:token:office": "secret" })
+  const start = () => runCli(["office", "session", "start", "--json"], { keyring })
+  expect((await start()).code).toBe(0)
+  expect((await sync()).code).toBe(0)
+  const synced = (await listed()).length
+  expect(synced).toBeGreaterThan(0)
+
+  const dry = await runCli(["office", "account", "remove", "--delete-data", "--dry-run", "--json"], { keyring })
+  expect(dry.code, dry.err).toBe(0)
+  expect(dry.json().item).toMatchObject({
+    removed: expect.arrayContaining([{ kind: "keyring", target: "token:office" }]),
+  })
+  expect(keyring.get("asterisk-cli", "token:office")).toBe("secret")
+
+  const kept = await runCli(["office", "account", "remove", "--keep-data", "--yes", "--json"], { keyring })
+  expect(kept.code, kept.err).toBe(0)
+  expect(kept.json().item).toMatchObject({ data: "kept", revoked: null })
+  expect(keyring.get("asterisk-cli", "token:office")).toBeNull()
+  expect((await listed()).length).toBe(synced)
+
+  await office()
+  expect((await start()).code).toBe(0)
+  const deleted = await runCli(["office", "account", "remove", "--delete-data", "--yes", "--json"], { keyring })
+  expect(deleted.code, deleted.err).toBe(0)
+  expect((await runCli(["office", "meetings", "list", "--json"])).json().items).toEqual([])
 })
