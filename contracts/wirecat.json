@@ -73,6 +73,19 @@
     },
     {
       "path": [
+        "account",
+        "remove"
+      ],
+      "summary": "sign this profile out and forget it, keeping or deleting its data",
+      "effects": {
+        "remote": "none",
+        "local": "write"
+      },
+      "permission": "account.remove",
+      "entity": "account_removal"
+    },
+    {
+      "path": [
         "meetings",
         "list"
       ],
