@@ -2,6 +2,30 @@
 
 Notable changes to `@wirecat/asterisk-cli`. One section per version, newest first.
 
+## 0.9.0 — 19.11.2026
+
+### Added
+
+- **`pbx <profile> account remove` signs a profile out and forgets it on this computer.** It forgets the saved
+  database or SFTP password and the profile's settings. `--keep-data` leaves its calls in the store, where search still
+  finds them; `--delete-data` deletes them. It asks first, or takes `--yes`; `--dry-run` lists what it would remove.
+  Why: WireCat Desktop removes an account with this command, and pbx could only sign out with `session end`. The
+  password itself stays valid on the server: only the server's owner changes it.
+
+### Changed — may break callers
+
+- **The MCP Registry entry asks which profiles to serve.** It started `mcp serve --profiles all`, so a client that
+  installed the server from the registry reached every account on the computer without the owner choosing. Now
+  `--profiles` is a required argument with the example `personal`: the client asks for one profile, a
+  comma-separated list or `all`. Why: a CLI never picks an account for the owner
+  ([WC-MCP-9](https://github.com/WireCatLabs/cli-base/blob/main/docs/standards/mcp.md#wc-mcp-9--a-server-serves-the-profiles-it-is-told-with-one-connection-for-each)). Watch for: a client set up from the old entry keeps `--profiles all` until it is set up again; a
+  server added by hand or with `mcp config` does not change.
+
+### Fixed
+
+- **WireCat Desktop can remove a pbx account.** The manifest Desktop reads (`contracts/wirecat.json`) now names
+  `account remove` and `session end`.
+
 ## 0.8.0 — 17.11.2026
 
 ### Changed — may break callers

@@ -866,7 +866,15 @@
         "--record",
         "--json"
       ],
-      "last": null,
+      "last": [
+        "runs",
+        "list",
+        "command:\"meetings sync\" status:success",
+        "--limit",
+        "50",
+        "--no-record",
+        "--json"
+      ],
       "lastShape": "runs",
       "what": "call records and their recordings",
       "note": null
@@ -883,6 +891,44 @@
       "app": "asterisk-cli",
       "env": "PBX"
     },
-    "settings": null
+    "settings": null,
+    "accountRemove": {
+      "signOut": [
+        "{profile}",
+        "session",
+        "end",
+        "--record",
+        "--json"
+      ],
+      "remove": {
+        "minVersion": "0.0.0",
+        "keepData": [
+          "{profile}",
+          "account",
+          "remove",
+          "--keep-data",
+          "--record",
+          "--json"
+        ],
+        "deleteData": [
+          "{profile}",
+          "account",
+          "remove",
+          "--delete-data",
+          "--record",
+          "--json"
+        ],
+        "dryRun": "--dry-run",
+        "confirm": "--yes"
+      },
+      "removes": [
+        "signIn"
+      ],
+      "keeps": [
+        "settings",
+        "data",
+        "listed"
+      ]
+    }
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@wirecat/asterisk-cli",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Asterisk PBX calls (CDR from Master.csv, MySQL or PostgreSQL) and their recordings as meetings in the local WireCat store, transcribed on your computer, for AI agents. Read-only.",
   "license": "Apache-2.0",
   "author": "Viacheslav Ptsarev",
@@ -57,8 +57,8 @@
     "docs:spell": "cspell lint --config cspell.json --no-progress --no-summary README.md SECURITY.md CHANGELOG.md AGENTS.md CLAUDE.md 'docs/*.md' 'skills/**/*.md'"
   },
   "dependencies": {
-    "@wirecat/cli-base": "0.102.1",
-    "@wirecat/cli-core": "0.675.0",
+    "@wirecat/cli-base": "0.125.0",
+    "@wirecat/cli-core": "0.714.0",
     "commander": "15.0.0",
     "mysql2": "3.24.6",
     "pg": "8.23.1",

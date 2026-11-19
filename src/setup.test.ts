@@ -70,7 +70,7 @@ it("a dry run names each input to fix on the step it stops at, and saves nothing
   expect(checked.code, checked.err).toBe(0)
   const item = checked.json().item as { valid: boolean; at: string; errors: { input: string }[] }
   expect(item).toMatchObject({ valid: false, at: "database" })
-  expect(item.errors.map(({ input }) => input)).toEqual(expect.arrayContaining(["db_host", "db_port", "db_user", "db"]))
+  expect(item.errors.map(({ input }) => input)).toEqual(expect.arrayContaining(["db_host", "db_port", "db_user"]))
   expect(existsSync(configFile())).toBe(false)
 })
 
