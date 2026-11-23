@@ -1,7 +1,8 @@
 # Install and connect
 
-Asterisk writes a line about every call to its call log and keeps each recording as a sound file, but it gives your AI
-agent no way to read them. Services that turn recordings into text usually send them to the cloud. `pbx`, a WireCat
+Find any call your phone system recorded and read what was said in it, without listening to the recording. Asterisk
+writes a line about every call to its call log and keeps each recording as a sound file, but it gives your AI agent
+no way to read them. Services that turn recordings into text usually send them to the cloud. `pbx`, a WireCat
 command-line tool, reads the call log and the recordings where Asterisk keeps them, changes nothing on the phone
 system, and turns the recordings into text on your computer. Cloud transcription is an option you turn on for one
 profile.
@@ -25,6 +26,7 @@ may only read, and to the recordings folder if you want the text of the calls. W
 7. [Import the history, then keep it current](#import-the-history-then-keep-it-current)
 8. [Transcribe](#transcribe)
 9. [Search the calls with everything else](#search-the-calls-with-everything-else)
+10. [Remove a phone system](#remove-a-phone-system)
 
 ## How Asterisk keeps calls
 
@@ -183,6 +185,18 @@ pbx office config set cdr_timezone Europe/Moscow
 pbx office session start
 ```
 
+`10.0.0.%` stands for the address of the computer that runs `pbx`. When the database is on another computer, it must
+also accept that address:
+
+1. On MySQL or MariaDB, set `bind-address` in the server's settings to an address your computer reaches, not
+   `127.0.0.1`, and restart the database. On PostgreSQL, add that address to `listen_addresses` in `postgresql.conf`,
+   and a line for the user to `pg_hba.conf`, such as `host asteriskcdrdb wirecat_reader 10.0.0.0/24 scram-sha-256`.
+2. Let your computer's address through the firewall to the database port, and no other address.
+3. Turn on `db_tls true` when the connection crosses a network you do not control.
+
+Not ready to open the database to the network? Reach it
+[through the phone system's SSH](#a-database-behind-the-phone-systems-ssh) instead.
+
 `cdr_source postgres` reads PostgreSQL. `db_port` changes the port (3306 for MySQL, 5432 for PostgreSQL), `db_table`
 the table (`cdr`), and `db_tls true` asks for an encrypted connection with a checked certificate. The session is
 opened read-only, and the only statement sent is a `SELECT` of the records that started after the last sync, in pages
@@ -214,6 +228,32 @@ pbx office config set db_ssh_user wirecat
 pbx office config set db_ssh_key_path ~/.ssh/wirecat_pbx     # or leave it out to sign in with a password
 pbx office session start
 ```
+
+The SSH user needs no shell. Make one before the first `session start`, on the phone system, as root:
+
+1. Create the user with no shell, and give it your public key:
+
+   ```sh
+   useradd --create-home --shell /usr/sbin/nologin wirecat
+   install -d -m 700 -o wirecat -g wirecat /home/wirecat/.ssh
+   install -m 600 -o wirecat -g wirecat wirecat_pbx.pub /home/wirecat/.ssh/authorized_keys
+   ```
+
+2. Let it forward only to the database. Add this to the end of `/etc/ssh/sshd_config`, with the `db_host` and
+   `db_port` you set (`127.0.0.1:5432` for PostgreSQL):
+
+   ```text
+   Match User wirecat
+       AllowTcpForwarding local
+       PermitOpen 127.0.0.1:3306
+       PermitTTY no
+       X11Forwarding no
+       AllowAgentForwarding no
+   ```
+
+3. Check the file with `sshd -t`, then reload the SSH server with `systemctl reload sshd`.
+
+`pbx` asks the SSH server only to forward to the database, so this user can do nothing else on the phone system.
 
 `db_ssh_port` changes the SSH port (22). The SSH user needs no shell: an account that may only forward a port is
 enough. The first `session start` connects only far enough to see the SSH server's key, and stops. It prints the
@@ -257,7 +297,7 @@ recording is imported all the same. When the folder is on the phone system, read
 
 `files_from sftp` reads `Master.csv` and the recordings on the phone system itself, through its SSH server. Nothing
 is copied to a folder of its own and nothing is written there. Make a user that may only read those folders, for
-example one in the `pbx` group, then:
+example one in the `asterisk` group, which owns those folders on most systems, then:
 
 ```sh
 pbx office config set files_from sftp
@@ -401,3 +441,16 @@ a service may need the consent of the people on it; see [security](security.md#r
 The calls are in the WireCat store every WireCat tool reads. An agent with `memo` asks about one person across
 calls, chats and mail; `search all` in any WireCat CLI searches them together. Next: [use it](usage.md), how commands
 are built and how an agent reads the calls.
+
+## Remove a phone system
+
+To forget one phone system on this computer, remove its profile:
+
+```sh
+pbx office account remove --keep-data
+```
+
+It deletes the profile's settings and its saved passwords. The database, SFTP and SSH users keep their passwords on
+the phone system: change or delete them there. `--keep-data` leaves the calls and their text in the store, where
+search still finds them, and `--delete-data` deletes them. At a terminal it asks first, `--yes` answers for a script,
+and `--dry-run` lists what it would remove without removing it.
