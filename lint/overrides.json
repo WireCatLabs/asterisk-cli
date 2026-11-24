@@ -1,9 +1,1 @@
-[
-  {
-    "rule": "wcat-bin-name",
-    "target": "package.json \"bin\" pbx",
-    "reason": "Keeps the short pbx command beside wcat-pbx, as zm, beeline, gcal and mail do.",
-    "owner": "@WireCatLabs",
-    "review_after": "2027-05-13"
-  }
-]
+[]
