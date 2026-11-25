@@ -2,6 +2,16 @@
 
 Notable changes to `@wirecat/asterisk-cli`. One section per version, newest first.
 
+## Unreleased
+
+### Fixed
+
+- **A read under `PBX_READ_ONLY` creates no store.** Before any sync, a read such as `meetings list` opened the shared
+  store for writing and created `wirecat.db`. Now it answers from an empty store in a temporary folder, as beeline
+  does. A store that needs a migration is refused under the lock, not migrated.
+- **The store opens through cli-core's `openAppStore`.** pbx kept its own copy of it. Nothing changes for a user: the
+  store, its provider entry and the read-only open work as before.
+
 ## 0.10.0 — 25.11.2026
 
 ### Changed — may break callers
