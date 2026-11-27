@@ -15,6 +15,7 @@ import {
   itemOf,
   listOf,
   NO_EFFECTS,
+  openProfileStore,
   outputFor,
   overrideSharedContract,
   pagingOf,
@@ -304,15 +305,25 @@ export const meetingsMount = () => {
       if (!at || !commands.has(at)) return
       const run = environmentOf(at)
       const { settings, env } = baseContext(at, configuration.resolveSettings)
-      const [{ openProfileStore }, { openFiles, openSource }, { callSource }, { recordingFinder }] = await Promise.all([
-        import("../store.js"),
-        import("../context.js"),
-        import("../call-source.js"),
-        import("../recordings.js"),
-      ])
+      const [{ openAsteriskStore, PROVIDER }, { openFiles, openSource }, { callSource }, { recordingFinder }] =
+        await Promise.all([
+          import("../store.js"),
+          import("../context.js"),
+          import("../call-source.js"),
+          import("../recordings.js"),
+        ])
       // A command whose only write is a file (`meetings export --output`) leaves the store as it was.
       const reads = metaOf(at).effects?.local === "read" || (readsOverMcp(at) && !fetchesOnly(at))
-      const { store, accountId } = await openProfileStore(env, settings.profile, reads)
+      const { profile } = settings
+      const { store, accountId } = await openProfileStore({
+        app: IDENTITY,
+        env,
+        profile,
+        readOnly: reads,
+        provider: PROVIDER.name,
+        open: openAsteriskStore,
+        name: profile,
+      })
       let asterisk: Promise<OpenedSource> | undefined
       let files: Promise<FileAccess> | undefined
       let closed: Promise<void> | undefined

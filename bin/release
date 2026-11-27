@@ -2,16 +2,17 @@
 # Publishes the version in package.json and tags it. Run on a clean `main` that matches origin/main. An agent may run
 # it without --local; --local is for the owner's first release only. When npm already has that version, or a higher
 # one, it raises it to the next free one through a pull request and publishes that (WC-REL-5). Nothing is published
-# until `pnpm release:check` passes.
+# until `pnpm release:check` passes: without --local its tests run in release.yml, the other checks here.
 #
 #   bin/release           # publishes from GitHub Actions (.github/workflows/release.yml, npm trusted publishing)
 #   bin/release --local   # publishes from this computer: NPM_TOKEN if exported, else the keyring, else `npm login`
+#   bin/release --first   # --local for a package npm has never seen, then says how to set npm trusted publishing
 #
 # The keyring is read only when NPM_KEYRING_ACCOUNT names the account the token is stored under
 # (`secret-tool store --label=npm service npm account <account>`); unset, the keyring is skipped. Set, a failed
 # lookup stops the release instead of falling back to `npm login`.
 #
-# A package that is not on npm yet is published the same way; its first version needs --local until npm trusts
+# A package that is not on npm yet is published the same way; its first version needs --first until npm trusts
 # release.yml. The npm token is never printed and never written to a file (WC-REL-14).
 set -eu
 
@@ -20,10 +21,12 @@ publish_token=${NPM_TOKEN:-}
 unset NPM_TOKEN
 
 mode=ci
+first=""
 for arg; do
   case "$arg" in
     --local) mode=local ;;
-    *) echo "usage: bin/release [--local]" >&2; exit 2 ;;
+    --first) mode=local first=1 ;;
+    *) echo "usage: bin/release [--local | --first]" >&2; exit 2 ;;
   esac
 done
 
@@ -52,9 +55,10 @@ git fetch -q origin
 pnpm install --frozen-lockfile
 package=$(node -p 'require("./package.json").name')
 version=$(node -p 'require("./package.json").version')
-# The code released is the code a person checked against the real service (WC-REL-17). Only the template has kit/,
-# and no service to check; every CLI made from it has a template.json too, so that file cannot tell them apart.
-[ -d kit ] || pnpm exec cli-dev live check --version "$version"
+if [ -n "$first" ] && [ -n "$(npm view "$package" version --prefer-online 2>/dev/null || true)" ]; then
+  echo "$package is already on npm: --first is for its first version; run bin/release" >&2
+  exit 1
+fi
 # A 404 for a package npm has never seen is "not published", like any other failure of `npm view`.
 published() {
   npm view "$package@$version" version --prefer-online >/dev/null 2>&1
@@ -114,17 +118,9 @@ published || folded=$(pnpm exec cli-dev changelog fold --land --version "$versio
 [ -z "$folded" ] || echo "$folded"
 rerun_if_changed "$@"
 
-# Two sessions preparing the same number is normal; the second takes the next free one.
-latest=$(npm view "$package" version --prefer-online 2>/dev/null || true)
-versions=$(npm view "$package" versions --json --prefer-online 2>/dev/null || true)
-next=$(pnpm exec cli-dev next-version "$version" "$latest" "$versions")
-fragments=$(find changes -maxdepth 1 -type f -name '*.md' ! -name README.md 2>/dev/null | wc -l)
-if [ "$next" != "$version" ]; then
-  taken=""
-  if published; then taken=1; why="$version is already on npm"; else why="$version is not above npm's latest $latest"; fi
-  next=$(node --experimental-strip-types scripts/version-level.ts --next "$next")
-  echo "$why — publishing $next instead"
-  # A version npm already has keeps its changelog section; the unreleased one becomes the new version.
+# Raises the version from $1 to $2 in package.json, src/version.ts and the CHANGELOG heading. With $3 set, npm has
+# $1, so its section stays and the unreleased one becomes $2.
+renumber() {
   node -e 'const fs = require("fs"); const [o, n, taken] = process.argv.slice(1)
     const swap = (file, from, to) => {
       const text = fs.readFileSync(file, "utf8")
@@ -134,11 +130,34 @@ if [ "$next" != "$version" ]; then
     swap("package.json", `"version": "${o}"`, `"version": "${n}"`)
     swap("src/version.ts", `VERSION = "${o}"`, `VERSION = "${n}"`)
     const today = new Date().toLocaleDateString("en-GB").replaceAll("/", ".")
-    if (taken) swap("CHANGELOG.md", "\n## Unreleased\n", `\n## ${n} — ${today}\n`)
-    else swap("CHANGELOG.md", `\n## ${o} — `, `\n## ${n} — `)' "$version" "$next" "$taken"
-  node --experimental-strip-types scripts/changelog-fragments.ts --rules scripts/docs-rules.ts "$next"
-  body="bin/release: $why. Only the number changes: package.json, src/version.ts, the CHANGELOG heading, and the
-changes/ fragments collected under it.
+    // With only changes/ fragments there is no Unreleased section: the new version gets an empty one they fill.
+    const log = fs.readFileSync("CHANGELOG.md", "utf8")
+    if (taken && log.includes("\n## Unreleased\n")) swap("CHANGELOG.md", "\n## Unreleased\n", `\n## ${n} — ${today}\n`)
+    else if (taken) swap("CHANGELOG.md", "\n## ", `\n## ${n} — ${today}\n\n## `)
+    else swap("CHANGELOG.md", `\n## ${o} — `, `\n## ${n} — `)' "$1" "$2" "$3"
+}
+
+# Two sessions preparing the same number is normal; the second takes the next free one.
+latest=$(npm view "$package" version --prefer-online 2>/dev/null || true)
+versions=$(npm view "$package" versions --json --prefer-online 2>/dev/null || true)
+next=$(pnpm exec cli-dev next-version "$version" "$latest" "$versions")
+fragments=$(find changes -maxdepth 1 -type f -name '*.md' ! -name README.md 2>/dev/null | wc -l)
+if [ "$next" != "$version" ]; then
+  taken=""
+  if published; then taken=1; why="$version is already on npm"; else why="$version is not above npm's latest $latest"; fi
+  renumber "$version" "$next" "$taken"
+  pnpm exec cli-dev changelog fragments --collect "$next"
+  # next-version keeps the level of the version it raises; the section, with the fragments now in it, may need more:
+  # an Added is a minor.
+  levelled=$(pnpm exec cli-dev changelog level --next "$next")
+  if [ "$levelled" != "$next" ]; then
+    levelled=$(pnpm exec cli-dev next-version "$levelled" "$latest" "$versions")
+    renumber "$next" "$levelled" ""
+    next=$levelled
+  fi
+  echo "$why — publishing $next instead"
+  body="bin/release: $why. Only the number changes, to the level the changelog needs: package.json, src/version.ts,
+the CHANGELOG heading, and the changes/ fragments collected under it.
 
 ## Conformance
 
@@ -147,10 +166,20 @@ The release pull request of $version recorded the checks; this one changes only 
   rerun_if_changed "$@"
   version=$next
 elif [ "$fragments" -gt 0 ]; then
-  # The version was dated by hand; fragments merged since then still belong to it.
-  node --experimental-strip-types scripts/changelog-fragments.ts --rules scripts/docs-rules.ts "$version"
-  land "release/$version-changes" "chore(changelog): collect changes/ into $version" \
-    "bin/release: the changes/ fragments merged since $version was dated, collected into its section."
+  # The version was dated by hand; fragments merged since then still belong to it, and may need a higher level.
+  pnpm exec cli-dev changelog fragments --collect "$version"
+  levelled=$(pnpm exec cli-dev changelog level --next "$version")
+  if [ "$levelled" != "$version" ]; then
+    levelled=$(pnpm exec cli-dev next-version "$levelled" "$latest" "$versions")
+    renumber "$version" "$levelled" ""
+    echo "the changes/ fragments need $levelled — publishing it instead of $version"
+    land "release/$levelled" "chore(release): $levelled" \
+      "bin/release: the changes/ fragments merged since $version was dated need $levelled, collected into its section."
+    version=$levelled
+  else
+    land "release/$version-changes" "chore(changelog): collect changes/ into $version" \
+      "bin/release: the changes/ fragments merged since $version was dated, collected into its section."
+  fi
   rerun_if_changed "$@"
 fi
 top=$(sed -n '/^## /{p;q;}' CHANGELOG.md)
@@ -162,9 +191,23 @@ if published; then
   echo "$package@$version is already on npm — raise the version first" >&2
   exit 1
 fi
+# The code released is the code a person checked against the real service (WC-REL-17), so the check waits for the
+# version a raise above may have changed. Only the template has kit/, and no service to check; every CLI made from it
+# has a template.json too, so that file cannot tell them apart. A CLI made with --preset generic is outside WireCat,
+# and WC-REL-17 leaves its live check to its owner.
+[ -d kit ] || grep -qs '"preset": "generic"' template.json || pnpm exec cli-dev live check --version "$version"
 
 echo "== checks for $version =="
-pnpm release:check
+if [ "$mode" = ci ]; then
+  # release.yml runs the tests on this commit before it publishes, and the test matrix check that needs their argv
+  # log. Run here too, they only time out on a busy computer.
+  checks=$(node -p 'require("./package.json").scripts["release:check"]' |
+    sed -e 's/pnpm test:coverage && //' -e 's/ && pnpm test:coverage//' \
+      -e 's/pnpm test:matrix:check && //' -e 's/ && pnpm test:matrix:check//')
+  sh -c "$checks"
+else
+  pnpm release:check
+fi
 
 if [ "$mode" = ci ]; then
   last_run() {
@@ -202,7 +245,7 @@ if [ "$mode" = ci ]; then
       # npm answers 404 to a publish from a workflow it does not trust.
       if gh run view "$run" --log-failed 2>/dev/null | grep -q "404 Not Found - PUT"; then
         echo "npm refused the publish; a package npm does not trust yet publishes its first version with" >&2
-        echo "bin/release --local" >&2
+        echo "bin/release --first" >&2
       fi
       exit 1 ;;
     *) echo "lost track of release run $run — see gh run view $run" >&2; exit 1 ;;
@@ -261,3 +304,11 @@ git push -q origin "v$version"
 awk -v v="$version" '$0 ~ "^## "v" " {on=1; next} /^## / && on {exit} on' CHANGELOG.md |
   gh release create "v$version" --title "$version" --notes-file -
 echo "published $package@$version"
+if [ -n "$first" ]; then
+  repo=$(node -p 'String(require("./package.json").repository?.url ?? "").replace(/^.*github\.com[/:]|\.git$/g, "")')
+  echo
+  echo "Now let npm trust GitHub Actions, so the next releases need no token on this computer:"
+  echo "  the package's Settings on npmjs.com (https://www.npmjs.com/package/$package/access), Trusted Publisher, GitHub Actions:"
+  echo "  repository $repo, workflow release.yml, environment npm (WC-REL-11)."
+  echo "Then every later release is bin/release, with no flag."
+fi
