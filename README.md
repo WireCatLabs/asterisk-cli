@@ -197,7 +197,7 @@ More: [settings](https://github.com/WireCatLabs/asterisk-cli/blob/main/docs/conf
 - **Who said what.** A stereo recording keeps its two channels apart: set `recordings_channels`, and each line names
   the caller or the employee. A mono recording, one mixed track, gives the text without names.
 - **Length and size.** A recording longer than one hour is not transcribed. An MP3, Ogg or FLAC file can be up to
-  64 MB, which is more than an hour at usual phone quality. WAV, GSM and M4A files and Master.csv can be of any size.
+  640 MB, far more than an hour at usual phone quality. WAV, GSM and M4A files and Master.csv can be of any size.
   A call that is not transcribed is listed, and the rest go on.
 
 More: [what is planned](https://github.com/WireCatLabs/asterisk-cli/blob/main/docs/roadmap.md) · [compared with other tools](https://github.com/WireCatLabs/asterisk-cli/blob/main/docs/compare.md) · [on wirecat.dev](https://wirecat.dev/en/docs/pbx/compare)

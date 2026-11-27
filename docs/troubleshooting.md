@@ -22,7 +22,7 @@ for a support request.
 | A call has no recording | Check `recordings_path`, then `recordings_pattern`. A file changed in the last two minutes is left for the next sync. |
 | `model.not-downloaded` | Run `pbx models download gigaam-v3`, or the model the message names. |
 | A WAV, GSM or M4A call fails to transcribe | Install `ffmpeg`. |
-| A recording is listed as too long | A recording longer than one hour, or an MP3, Ogg or FLAC file over 64 MB, is not transcribed. |
+| A recording is listed as too long | A recording longer than one hour, or an MP3, Ogg or FLAC file over 640 MB, is not transcribed. |
 | `search meetings --model` or `meetings embed` says the model is missing | Run `pbx models download embeddinggemma`, or the model you named. |
 | The settings file does not read | `doctor` lists every problem in the file under `config.issues`. Run the `config unset` each one gives. |
 
