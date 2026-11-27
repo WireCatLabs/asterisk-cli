@@ -30,11 +30,9 @@ export const accountCommand = (): Command =>
   annotate(new Command("account"), { effects: LOCAL_READ })
     .description("this profile on this computer")
     .addCommand(
-      annotate(
-        accountRemoveCommand(IDENTITY, removal, {
-          provider: PROVIDER_NAME,
-          resolveSettings: configuration.resolveSettings,
-        }),
-        { effects: LOCAL_WRITE },
-      ),
+      accountRemoveCommand(IDENTITY, removal, {
+        provider: PROVIDER_NAME,
+        resolveSettings: configuration.resolveSettings,
+        effects: LOCAL_WRITE,
+      }),
     )

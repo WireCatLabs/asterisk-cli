@@ -30,6 +30,7 @@ Works with:
   linear                                  Linear issues and projects, searchable with your other WireCat data
 
 Start here:   pbx office setup  (any profile name works)
+              pbx session list  your profiles and their logged-in accounts
 Next:         pbx commands      every command, by section
               pbx help options  output, offline, timeouts, dry run
 For agents:   pbx skill show    rules and the discovery loop
