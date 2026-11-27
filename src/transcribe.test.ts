@@ -226,3 +226,18 @@ it("transcribe_engine takes local or openai only", async () => {
   expect(set.code).not.toBe(0)
   expect(set.err).toContain("local or openai")
 })
+
+it("reads an MP3, Ogg or FLAC recording up to 640 MB", async () => {
+  const limits: (number | undefined)[] = []
+  const done = await transcribe([], {
+    speech: speech({
+      decodeChannelsFile: async (_path, options) => {
+        limits.push(options?.maxBytes)
+        return { channels: [mono()], mixed: false }
+      },
+    }),
+  })
+  expect(done.code, done.err).toBe(0)
+  expect(limits.length).toBeGreaterThan(0)
+  expect(new Set(limits)).toEqual(new Set([640 * 1024 * 1024]))
+})

@@ -50,6 +50,9 @@ const count = (name: string) => (text: string) => {
 /** Without a query: every call of at least five seconds; shorter ones are mostly no answer or a hang-up. */
 export const DEFAULT_QUERY = "duration_ms>=5000"
 
+/** An MP3, Ogg or FLAC file is read whole for its bundled decoder; WAV, GSM and M4A go to ffmpeg by path. */
+export const LARGEST_COMPRESSED = 640 * 1024 * 1024
+
 const GUIDE = "https://github.com/WireCatLabs/cli-core/blob/main/docs/search/query-language.md"
 
 export const callQuery = (text: string) => {
@@ -111,7 +114,7 @@ export const transcribeCommand = (deps: TranscribeDeps): Command => {
       `\nThe calls the query names that have a recording and no transcript yet, newest first, at most ` +
         `--max-meetings of them; without a query, ${DEFAULT_QUERY}. A recording already transcribed is not read ` +
         `again unless it changed. WAV, GSM and M4A recordings need ffmpeg. A recording longer than one hour, or an ` +
-        `MP3, Ogg or FLAC file larger than 64 MB, is not transcribed. A call that fails is listed and the rest go ` +
+        `MP3, Ogg or FLAC file larger than ${LARGEST_COMPRESSED / 1024 / 1024} MB, is not transcribed. A call that fails is listed and the rest go ` +
         `on.\n\n${fieldsHelp(MEETING_QUERY, GUIDE)}`,
     )
     .option("--replace", "transcribe calls that already have a transcript too, replacing it")
@@ -168,7 +171,7 @@ export const transcribeCommand = (deps: TranscribeDeps): Command => {
             store: deps.store(),
             accountId: deps.accountId(),
             files: deps.files,
-            decode: async (path) => (await speech.decodeChannelsFile(path)).channels,
+            decode: async (path) => (await speech.decodeChannelsFile(path, { maxBytes: LARGEST_COMPRESSED })).channels,
             recognize: cloud
               ? (pcm) => cloud.recognize(pcm)
               : (pcm) => speech.recognizeLocalPieces(model, pcm, { env, ...(signal ? { signal } : {}) }),

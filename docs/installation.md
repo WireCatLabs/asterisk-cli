@@ -392,7 +392,7 @@ read again unless the file changed; `--replace` transcribes again. A recording o
 SFTP into a private temporary file for the time it is read, and deleted after.
 
 A recording can be up to one hour long. A WAV, GSM or M4A file can be of any size; an MP3, Ogg or FLAC file can be up
-to 64 MB, which is more than an hour at usual phone quality. A call that is not transcribed is listed with the
+to 640 MB, far more than an hour at usual phone quality. A call that is not transcribed is listed with the
 reason, and the rest go on. WAV, GSM and M4A need `ffmpeg`.
 
 Each line of a transcript can name who said it. Your dialplan records the two sides of a call either as one mixed
