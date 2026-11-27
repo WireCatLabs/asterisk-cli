@@ -2,6 +2,24 @@
 
 Notable changes to `@wirecat/asterisk-cli`. One section per version, newest first.
 
+## 0.12.0 — 27.11.2026
+
+### Changed — may break callers
+
+- **Built on cli-core 2.0.0.** The store migrates to version 78 on first open: agents become `agent:<id>` and sender
+  bots `bot:<id>`. Once a 2.0 tool opens the store, a 1.x tool refuses it, so upgrade every WireCat CLI together.
+- **A new profile's calls are work.** pbx saved a new account as personal, beeline as work. Now both save it as work,
+  so a work search (b24's `search all`) finds the calls. An account already saved keeps the scope it has.
+
+### Fixed
+
+- **An MP3, Ogg or FLAC recording is transcribed up to 640 MB, not 64 MB.** The owner's ruling of 27.11.2026 raised
+  such caps about ten times. The one-hour limit on a recording stays. Such a file is read whole into memory.
+- **The profile's store opens through cli-core's `openProfileStore`.** pbx kept its own copy. A read still finds an
+  account an older build saved, under `PBX_READ_ONLY` too.
+- **`bin/release` is cli-template's again.** The old copy raised the version to a minor for fixes and needed an
+  `## Unreleased` section beside the `changes/` fragments.
+
 ## 0.11.0 — 25.11.2026
 
 ### Fixed
