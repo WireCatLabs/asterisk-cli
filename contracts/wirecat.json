@@ -789,6 +789,40 @@
     "signIn": {
       "gives": "Lets your agent find your company's phone calls and read what was said in them.",
       "asks": "The path of Master.csv, or the CDR database's address and a read-only user's password.",
+      "methods": [
+        {
+          "id": "csv",
+          "label": "Master.csv file",
+          "words": [
+            "{profile}",
+            "session",
+            "start",
+            "--json"
+          ]
+        },
+        {
+          "id": "mysql",
+          "label": "MySQL",
+          "words": [
+            "{profile}",
+            "session",
+            "start",
+            "--json"
+          ],
+          "stdin": true
+        },
+        {
+          "id": "postgres",
+          "label": "PostgreSQL",
+          "words": [
+            "{profile}",
+            "session",
+            "start",
+            "--json"
+          ],
+          "stdin": true
+        }
+      ],
       "setupFrom": "0.0.0"
     },
     "skill": {
@@ -813,6 +847,7 @@
       ]
     },
     "mcpServer": {
+      "port": 8763,
       "start": [
         "mcp",
         "server",
@@ -929,6 +964,25 @@
         "settings",
         "data",
         "listed"
+      ]
+    },
+    "meetings": {
+      "provider": "asterisk",
+      "show": [
+        "{profile}",
+        "meetings",
+        "show",
+        "{id}",
+        "--no-record",
+        "--json"
+      ],
+      "transcript": [
+        "{profile}",
+        "meetings",
+        "transcript",
+        "{id}",
+        "--no-record",
+        "--json"
       ]
     }
   }

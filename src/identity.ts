@@ -27,9 +27,16 @@ export const DESKTOP: ManifestIdentity = {
   userHosts: "the Asterisk CDR database, its SSH server or the SFTP server you set up",
   tagline: "Asterisk calls and recordings, searchable",
   syncs: "call records and their recordings",
+  mcpPort: 8763,
+  meetingsProvider: "asterisk",
   signIn: {
     gives: "Lets your agent find your company's phone calls and read what was said in them.",
     asks: "The path of Master.csv, or the CDR database's address and a read-only user's password.",
+    methods: [
+      { id: "csv", label: "Master.csv file", words: ["{profile}", "session", "start", "--json"] },
+      { id: "mysql", label: "MySQL", words: ["{profile}", "session", "start", "--json"], stdin: true },
+      { id: "postgres", label: "PostgreSQL", words: ["{profile}", "session", "start", "--json"], stdin: true },
+    ],
   },
 }
 
