@@ -81,7 +81,7 @@ A browser app reaches the server over HTTP through your own tunnel, such as Tail
 pbx office mcp serve --http --public-url https://laptop.example.ts.net
 ```
 
-The server listens on `127.0.0.1` only, port 8765 (`--port` changes it). A browser app logs in with a one-time code
+The server listens on `127.0.0.1` only, port 8765 (`--port` changes it). WireCat Desktop runs it on port 8763. A browser app logs in with a one-time code
 the command prints. `pbx office mcp revoke` ends every login.
 
 `pbx office mcp server start` runs the same server in the background. `mcp server status` shows its port, the login

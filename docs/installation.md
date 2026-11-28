@@ -2,9 +2,9 @@
 
 Find any call your phone system recorded and read what was said in it, without listening to the recording. Asterisk
 writes a line about every call to its call log and keeps each recording as a sound file, but it gives your AI agent
-no way to read them. Services that turn recordings into text usually send them to the cloud. `pbx`, a WireCat
-command-line tool, reads the call log and the recordings where Asterisk keeps them, changes nothing on the phone
-system, and turns the recordings into text on your computer. Cloud transcription is an option you turn on for one
+no way to read them. Services that turn recordings into text usually send them to the cloud. With `pbx`, a WireCat
+command-line tool, you read the call log and the recordings where Asterisk keeps them, change nothing on the phone
+system, and get the recordings as text on your computer. Cloud transcription is an option you turn on for one
 profile.
 
 Once it is connected, you can ask your agent who called about an order last week and what was agreed, find every
@@ -30,8 +30,8 @@ may only read, and to the recordings folder if you want the text of the calls. W
 
 ## What you need
 
-- **Asterisk 1.8 or later**, or a system built on it: FreePBX, Issabel, VitalPBX. The record fields are those of the
-  [CDR specification](https://docs.asterisk.org/Configuration/Reporting/Call-Detail-Records-CDR/CDR-Specification/).
+- **Asterisk 1.8 or later**, or a system built on it: FreePBX, Issabel, VitalPBX. Asterisk writes a call detail record
+  (CDR) when each call ends, and its fields are those of the [CDR specification](https://docs.asterisk.org/Configuration/Reporting/Call-Detail-Records-CDR/CDR-Specification/).
 - **The call records**, readable from the computer where `pbx` runs:
 
   | You have | Records in | You need |

@@ -1,7 +1,7 @@
 # When something goes wrong
 
-Get your calls coming in again from the message `pbx` shows. A wrong path to Master.csv, a database that refuses the
-user and a recording with no text each have their own message and their own fix.
+Get your calls coming in again from the message `pbx` shows. Times off by hours, a database that refuses the user and a
+call with no recording each have their own message and their own fix.
 
 Find your symptom in the table, run the check it gives, and retry the command. If it still fails, you have the error
 code and the profile name ready for a support request. Your agent can do the same: each error names its reason, such
