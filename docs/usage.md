@@ -1,10 +1,10 @@
 # Use it
 
-You have [connected your Asterisk](installation.md), and the calls are in the WireCat store. Here you will find the
-everyday work a team can hand to an AI agent with them: getting ready for a callback, catching the calls nobody
-answered, a report of the week, finding the calls where a client was unhappy, marking the calls about refunds, and
-passing the calls to another system. Each task has a request you can copy, and
-[Run it on a schedule](#run-it-on-a-schedule) shows how to make it happen every day without you.
+Hand your agent the everyday work with calls: get ready for a callback, catch the calls nobody returned, or get a
+report of the week. Each task has a request you can copy, and the agent quotes the call behind every answer.
+
+The calls are in the WireCat store once you have [connected your Asterisk](installation.md). To run a task every
+day, see [run it on a schedule](#run-it-on-a-schedule).
 
 **On this page:**
 
@@ -191,11 +191,6 @@ leaves Hermes out. `pbx office mcp serve` serves the profile's commands over MCP
 claude mcp add pbx -- pbx office mcp serve
 ```
 
-The server offers every command but `session start` and `session end`. The profile's permissions decide what runs;
-see [settings](configuration.md#permissions). Text from a call — a transcript, a caller name, a number — reaches the
-agent marked as untrusted data, so words said on a call cannot instruct the agent.
-
-For ChatGPT and Claude in the browser,
-`pbx office mcp serve --http --public-url https://laptop.example.ts.net` serves on `127.0.0.1` (port 8765, or
-`--port`) behind your own tunnel. A browser app logs in with a one-time code that the command prints;
-`pbx office mcp revoke` ends every login.
+The profile's [permissions](permissions.md) decide what runs. Words said on a call reach the agent as untrusted
+data, so they cannot instruct it. Other clients, the tools the server offers and ChatGPT or Claude in the browser are
+on [MCP](mcp.md).

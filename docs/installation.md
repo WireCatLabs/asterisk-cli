@@ -13,40 +13,20 @@ local WireCat store, and Memo and the search of every WireCat tool find it there
 
 You connect `pbx` once per phone system. It needs read access to the call log, as a file or as a database user that
 may only read, and to the recordings folder if you want the text of the calls. WireCat Desktop and
-`pbx office setup` in a terminal ask the same questions; a script sets each setting with `config set`.
+`pbx office setup` in a terminal ask the same questions, and a script sets each setting with `config set`.
 
 **On this page:**
 
-1. [How Asterisk keeps calls](#how-asterisk-keeps-calls)
-2. [What you need](#what-you-need)
-3. [Install](#install)
-4. [Connect in WireCat Desktop](#connect-in-wirecat-desktop)
-5. [Connect from the terminal](#connect-from-the-terminal)
+1. [What you need](#what-you-need)
+2. [Install](#install)
+3. [Connect in WireCat Desktop](#connect-in-wirecat-desktop)
+4. [Connect from the terminal](#connect-from-the-terminal)
+5. [How Asterisk keeps calls](#how-asterisk-keeps-calls)
 6. [Numbers, directions and people](#numbers-directions-and-people)
 7. [Import the history, then keep it current](#import-the-history-then-keep-it-current)
 8. [Transcribe](#transcribe)
 9. [Search the calls with everything else](#search-the-calls-with-everything-else)
 10. [Remove a phone system](#remove-a-phone-system)
-
-## How Asterisk keeps calls
-
-Asterisk is a phone system (PBX): the company's phone numbers and its employees' phones run through it. FreePBX,
-Issabel and VitalPBX are Asterisk with a web admin panel, and keep calls the same way.
-
-- **Extensions.** Each employee's phone has a short internal number, such as `101`. A ring group (`600`) rings
-  several phones at once, and a queue (`700`) keeps a caller waiting until someone is free.
-- **Call records (CDR).** When a call ends, Asterisk writes a record of it: who called whom, when, how long, and
-  whether someone answered. The records go to the file `Master.csv`, to a database table, or to both. FreePBX
-  keeps them in its MySQL database `asteriskcdrdb`.
-- **One call, several records.** A ring group writes one record for each phone it rang, and a transfer one for each
-  leg. `pbx` joins them back into one call and says what became of it: answered, voicemail, busy or not answered,
-  who answered, how long the caller waited and how long they talked.
-- **Recordings.** When recording is on, Asterisk saves one sound file per call, usually under
-  `/var/spool/asterisk/monitor`. `pbx` finds each call's file by its name and links it to the call. It never copies,
-  moves or changes the file.
-
-`pbx` only reads. It needs no change to the dialplan (the rules that route calls), no Asterisk Manager Interface
-(AMI) or REST Interface (ARI) account, and nothing installed on the phone system.
 
 ## What you need
 
@@ -319,6 +299,26 @@ Paths are the phone system's: `cdr_csv_path /var/log/asterisk/cdr-csv/Master.csv
 password asks both passwords, the database's first; with an SSH tunnel too, the order is the database's, the SSH
 user's, then the SFTP user's. A dropped connection is opened again and the file is read on from where it stopped; a
 wrong password, a changed key or a missing file is not tried again.
+
+## How Asterisk keeps calls
+
+Asterisk is a phone system (PBX): the company's phone numbers and its employees' phones run through it. FreePBX,
+Issabel and VitalPBX are Asterisk with a web admin panel, and keep calls the same way.
+
+- **Extensions.** Each employee's phone has a short internal number, such as `101`. A ring group (`600`) rings
+  several phones at once, and a queue (`700`) keeps a caller waiting until someone is free.
+- **Call records (CDR).** When a call ends, Asterisk writes a record of it: who called whom, when, how long, and
+  whether someone answered. The records go to the file `Master.csv`, to a database table, or to both. FreePBX
+  keeps them in its MySQL database `asteriskcdrdb`.
+- **One call, several records.** A ring group writes one record for each phone it rang, and a transfer one for each
+  leg. `pbx` joins them back into one call and says what became of it: answered, voicemail, busy or not answered,
+  who answered, how long the caller waited and how long they talked.
+- **Recordings.** When recording is on, Asterisk saves one sound file per call, usually under
+  `/var/spool/asterisk/monitor`. `pbx` finds each call's file by its name and links it to the call. It never copies,
+  moves or changes the file.
+
+`pbx` only reads. It needs no change to the dialplan (the rules that route calls), no Asterisk Manager Interface
+(AMI) or REST Interface (ARI) account, and nothing installed on the phone system.
 
 ## Numbers, directions and people
 
