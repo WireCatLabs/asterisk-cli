@@ -1,7 +1,21 @@
 # When something goes wrong
 
-Start with the symptom, run the check, then retry the command. Keep the error code, the reason and the profile name
-for a support request.
+Get your calls coming in again from the message `pbx` shows. Times off by hours, a database that refuses the user and a
+call with no recording each have their own message and their own fix.
+
+Find your symptom in the table, run the check it gives, and retry the command. If it still fails, you have the error
+code and the profile name ready for a support request. Your agent can do the same: each error names its reason, such
+as `db.refused`, so it knows what happened.
+
+`pbx doctor` shows what is set up without the network or the keyring, and `pbx office session status --check` checks
+the connection to the call records.
+
+**On this page:**
+
+1. [Symptoms and what to do](#symptoms-and-what-to-do)
+2. [Asking for help](#asking-for-help)
+
+## Symptoms and what to do
 
 | Symptom | What to do |
 | --- | --- |
@@ -25,5 +39,11 @@ for a support request.
 | A recording is listed as too long | A recording longer than one hour, or an MP3, Ogg or FLAC file over 640 MB, is not transcribed. |
 | `search meetings --model` or `meetings embed` says the model is missing | Run `pbx models download embeddinggemma`, or the model you named. |
 | The settings file does not read | `doctor` lists every problem in the file under `config.issues`. Run the `config unset` each one gives. |
+
+## Asking for help
+
+Keep the error code and the profile name. `pbx doctor reports create` writes a problem report to a file and says
+where to send it. Ask on [Discord](https://discord.gg/DebENqbRrJ), or open an issue in the
+[asterisk-cli repository](https://github.com/WireCatLabs/asterisk-cli/issues).
 
 Never paste a password, a recording or a transcript into a support request.

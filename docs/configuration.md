@@ -58,8 +58,9 @@ recordings away. See [cloud transcription](installation.md#cloud-transcription).
 ## Permissions
 
 `permissions` decides what a command may do for this profile: `allow`, `ask`, `readonly` or `deny`, per command path
-(`meetings.sync`, `meetings.transcribe`, `tags.add`). Over MCP there is no one to ask, so `ask` lets the command run.
-`PBX_READ_ONLY=1` refuses every command that changes your sign-in or settings.
+(`meetings.sync`, `meetings.transcribe`, `tags.add`). What each level does, the built-in levels and what they mean
+for an agent are on [permissions](permissions.md). `PBX_READ_ONLY=1` refuses every command that changes your sign-in
+or settings.
 
 ```sh
 pbx office config set permissions.meetings.transcribe deny

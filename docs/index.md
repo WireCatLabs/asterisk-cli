@@ -46,7 +46,8 @@ Issabel and VitalPBX, and installs nothing on the phone system.
 - **Recordings become text on your computer** with a speech model you download once. Cloud transcription is a choice
   you make for one profile.
 - **Over MCP, "ask" goes ahead.** MCP is the way apps such as Claude Desktop call a tool, and nobody sits there to
-  answer a question. Set what an agent must not do to read only or refuse before you connect it.
+  answer a question. Set what an agent must not do to read only or refuse before you connect it
+  ([permissions](permissions.md)).
 
 ## How it looks
 
@@ -84,7 +85,7 @@ fine (FreePBX with Scribe), or an agent that changes the phone system itself, su
   callbacks. [Use it](usage.md)
 - **Search and mark:** by words or by meaning, and a tag on every call the search finds. [Use it](usage.md)
 - **Agents:** a skill for agents with a terminal, and an MCP server for Claude Desktop, Cursor and other apps.
-  [Use it](usage.md)
+  [MCP](mcp.md)
 
 ## With your other WireCat tools
 
@@ -147,7 +148,9 @@ of local files: [install and connect](installation.md).
 | Install and connect, in WireCat Desktop or a terminal | [Install and connect](installation.md) |
 | Requests for your agent, and a schedule | [Use it](usage.md) |
 | Every command and option | [Commands](commands.md) |
-| Settings and permissions | [Settings](configuration.md) |
+| Connect an app such as Claude Desktop | [MCP](mcp.md) |
+| What an agent may do | [Permissions](permissions.md) |
+| Every setting | [Settings](configuration.md) |
 | Something does not work | [When something goes wrong](troubleshooting.md) |
 | What is stored, and recordings and consent | [Security](security.md) |
 | How pbx differs from other Asterisk tools | [Compared with other tools](compare.md) |
